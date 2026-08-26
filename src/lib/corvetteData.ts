@@ -23,6 +23,7 @@ export interface PartDefinition {
 
 export const GRID_COLS = 8;
 export const GRID_ROWS = 6;
+export const GRID_LAYERS = 3;
 
 export const PARTS: PartDefinition[] = [
   // Weapons
@@ -231,5 +232,7 @@ export interface PlacedPart {
   partId: string;
   col: number;
   row: number;
+  /** Vertical layer (0 = bottom, GRID_LAYERS-1 = top) */
+  layer: number;
   rotation: Rotation;
 }

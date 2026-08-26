@@ -5,6 +5,7 @@ import {
   PARTS,
   GRID_COLS,
   GRID_ROWS,
+  GRID_LAYERS,
   PlacedPart,
   PartDefinition,
   Rotation,
@@ -40,6 +41,7 @@ function canPlace(
   partDef: PartDefinition,
   col: number,
   row: number,
+  layer: number,
   rotation: Rotation,
   excludeInstanceId?: string
 ): boolean {
@@ -49,6 +51,7 @@ function canPlace(
   const occupied = new Set<string>();
   for (const p of parts) {
     if (p.instanceId === excludeInstanceId) continue;
+    if (p.layer !== layer) continue;
     const def = PARTS.find((d) => d.id === p.partId)!;
     for (const cell of cellsOccupied(p, def)) occupied.add(cell);
   }
@@ -60,8 +63,11 @@ function canPlace(
   return true;
 }
 
+const LAYER_LABELS = ["Untere Ebene", "Mittlere Ebene", "Obere Ebene"];
+
 export default function CorvetteBuilder() {
   const [placedParts, setPlacedParts] = useState<PlacedPart[]>([]);
+  const [currentLayer, setCurrentLayer] = useState(0);
   const [selectedPartId, setSelectedPartId] = useState<string | null>(null);
   const [selectedRotation, setSelectedRotation] = useState<Rotation>(0);
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(
@@ -77,7 +83,7 @@ export default function CorvetteBuilder() {
 
   const handleCellClick = useCallback(
     (col: number, row: number) => {
-      // If an instance is selected, move it
+      // If an instance is selected, move it to this cell (on current layer)
       if (selectedInstanceId) {
         const inst = placedParts.find(
           (p) => p.instanceId === selectedInstanceId
@@ -85,12 +91,20 @@ export default function CorvetteBuilder() {
         if (!inst) return;
         const def = PARTS.find((d) => d.id === inst.partId)!;
         if (
-          canPlace(placedParts, def, col, row, inst.rotation, selectedInstanceId)
+          canPlace(
+            placedParts,
+            def,
+            col,
+            row,
+            currentLayer,
+            inst.rotation,
+            selectedInstanceId
+          )
         ) {
           setPlacedParts((prev) =>
             prev.map((p) =>
               p.instanceId === selectedInstanceId
-                ? { ...p, col, row }
+                ? { ...p, col, row, layer: currentLayer }
                 : p
             )
           );
@@ -99,8 +113,9 @@ export default function CorvetteBuilder() {
         return;
       }
 
-      // Check if clicking on an existing part
+      // Check if clicking on an existing part on the current layer
       for (const p of placedParts) {
+        if (p.layer !== currentLayer) continue;
         const def = PARTS.find((d) => d.id === p.partId)!;
         const cells = cellsOccupied(p, def);
         if (cells.includes(`${col},${row}`)) {
@@ -114,7 +129,10 @@ export default function CorvetteBuilder() {
       if (!selectedPartId) return;
       const def = PARTS.find((d) => d.id === selectedPartId)!;
       if (countByPartId(selectedPartId) >= def.maxCount) return;
-      if (!canPlace(placedParts, def, col, row, selectedRotation)) return;
+      if (
+        !canPlace(placedParts, def, col, row, currentLayer, selectedRotation)
+      )
+        return;
 
       setPlacedParts((prev) => [
         ...prev,
@@ -123,29 +141,34 @@ export default function CorvetteBuilder() {
           partId: selectedPartId,
           col,
           row,
+          layer: currentLayer,
           rotation: selectedRotation,
         },
       ]);
     },
-    [placedParts, selectedPartId, selectedRotation, selectedInstanceId, countByPartId]
+    [
+      placedParts,
+      selectedPartId,
+      selectedRotation,
+      selectedInstanceId,
+      currentLayer,
+      countByPartId,
+    ]
   );
 
-  const rotatePart = useCallback(
-    (instanceId: string) => {
-      setPlacedParts((prev) =>
-        prev.map((p) => {
-          if (p.instanceId !== instanceId) return p;
-          const def = PARTS.find((d) => d.id === p.partId)!;
-          const nextRotation = ((p.rotation + 90) % 360) as Rotation;
-          if (canPlace(prev, def, p.col, p.row, nextRotation, instanceId)) {
-            return { ...p, rotation: nextRotation };
-          }
-          return p;
-        })
-      );
-    },
-    []
-  );
+  const rotatePart = useCallback((instanceId: string) => {
+    setPlacedParts((prev) =>
+      prev.map((p) => {
+        if (p.instanceId !== instanceId) return p;
+        const def = PARTS.find((d) => d.id === p.partId)!;
+        const nextRotation = ((p.rotation + 90) % 360) as Rotation;
+        if (canPlace(prev, def, p.col, p.row, p.layer, nextRotation, instanceId)) {
+          return { ...p, rotation: nextRotation };
+        }
+        return p;
+      })
+    );
+  }, []);
 
   const removePart = useCallback((instanceId: string) => {
     setPlacedParts((prev) =>
@@ -160,21 +183,34 @@ export default function CorvetteBuilder() {
     setSelectedInstanceId(null);
   }, []);
 
-  // Build cell map
+  // Build cell map for current layer only
   const cellMap: Record<string, PlacedPart> = {};
   for (const p of placedParts) {
+    if (p.layer !== currentLayer) continue;
     const def = PARTS.find((d) => d.id === p.partId)!;
     for (const cell of cellsOccupied(p, def)) {
       cellMap[cell] = p;
     }
   }
 
-  // Group parts by category
+  // Cells that are occupied on OTHER layers (for visual hint)
+  const otherLayersCells = new Set<string>();
+  for (const p of placedParts) {
+    if (p.layer === currentLayer) continue;
+    const def = PARTS.find((d) => d.id === p.partId)!;
+    for (const cell of cellsOccupied(p, def)) {
+      otherLayersCells.add(cell);
+    }
+  }
+
   const categories = Array.from(new Set(PARTS.map((p) => p.category)));
 
   const selectedInstance = selectedInstanceId
     ? placedParts.find((p) => p.instanceId === selectedInstanceId)
     : null;
+
+  const partsOnLayer = (layer: number) =>
+    placedParts.filter((p) => p.layer === layer).length;
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 flex flex-col">
@@ -186,7 +222,9 @@ export default function CorvetteBuilder() {
             <h1 className="text-yellow-400 font-bold text-xl tracking-wider uppercase">
               NMS Corvette Builder
             </h1>
-            <p className="text-gray-400 text-xs">No Man&apos;s Sky – Offline Korvetten-Baumeister</p>
+            <p className="text-gray-400 text-xs">
+              No Man&apos;s Sky – Offline Korvetten-Baumeister
+            </p>
           </div>
         </div>
         <button
@@ -300,7 +338,10 @@ export default function CorvetteBuilder() {
                       Rotation: {selectedInstance.rotation}°
                     </span>
                     <span className="text-xs text-gray-400">
-                      Pos: ({selectedInstance.col}, {selectedInstance.row})
+                      Pos: ({selectedInstance.col},{selectedInstance.row})
+                    </span>
+                    <span className="text-xs text-blue-400">
+                      Ebene: {LAYER_LABELS[selectedInstance.layer]}
                     </span>
                     <div className="ml-auto flex gap-2">
                       <button
@@ -320,7 +361,7 @@ export default function CorvetteBuilder() {
                         className="text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 border border-gray-600 px-3 py-1 rounded transition-colors"
                       >
                         ✕ Abwählen
-      </button>
+                      </button>
                     </div>
                   </>
                 );
@@ -337,10 +378,45 @@ export default function CorvetteBuilder() {
             </div>
           )}
 
+          {/* Layer tabs */}
+          <div className="flex gap-1">
+            {Array.from({ length: GRID_LAYERS }).map((_, i) => {
+              const count = partsOnLayer(i);
+              return (
+                <button
+                  key={i}
+                  onClick={() => {
+                    setCurrentLayer(i);
+                    setSelectedInstanceId(null);
+                  }}
+                  className={`flex-1 py-2 px-3 rounded-t text-xs font-semibold border-b-2 transition-colors ${
+                    currentLayer === i
+                      ? "bg-gray-800 border-yellow-400 text-yellow-300"
+                      : "bg-gray-900 border-gray-700 text-gray-400 hover:text-gray-200 hover:border-gray-500"
+                  }`}
+                >
+                  {LAYER_LABELS[i]}
+                  {count > 0 && (
+                    <span
+                      className={`ml-1.5 text-[10px] px-1 rounded-full ${
+                        currentLayer === i
+                          ? "bg-yellow-500/30 text-yellow-300"
+                          : "bg-gray-700 text-gray-400"
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
           {/* Grid */}
-          <div className="bg-gray-900 border border-gray-700 rounded-lg p-4 overflow-auto flex-1">
+          <div className="bg-gray-900 border border-gray-700 rounded-lg rounded-tl-none p-4 overflow-auto flex-1">
             <p className="text-xs text-gray-500 mb-3 uppercase tracking-wider">
-              Technik-Gitter ({GRID_COLS}×{GRID_ROWS})
+              {LAYER_LABELS[currentLayer]} – Technik-Gitter ({GRID_COLS}×
+              {GRID_ROWS})
             </p>
             <div
               className="grid gap-1"
@@ -358,10 +434,10 @@ export default function CorvetteBuilder() {
                     : null;
                   const isSelectedInst =
                     placed?.instanceId === selectedInstanceId;
-
-                  // Is this the "origin" cell of the part?
                   const isOrigin =
                     placed?.col === col && placed?.row === row;
+                  const hasOtherLayer =
+                    !placed && otherLayersCells.has(key);
 
                   // Preview highlight
                   let previewHighlight = false;
@@ -372,12 +448,17 @@ export default function CorvetteBuilder() {
                       pDef.h,
                       selectedRotation
                     );
-                    // Check if this cell is within a potential placement starting
-                    // at itself (simple: highlight if empty and valid origin)
                     if (
                       col + w <= GRID_COLS &&
                       row + h <= GRID_ROWS &&
-                      canPlace(placedParts, pDef, col, row, selectedRotation)
+                      canPlace(
+                        placedParts,
+                        pDef,
+                        col,
+                        row,
+                        currentLayer,
+                        selectedRotation
+                      )
                     ) {
                       previewHighlight = true;
                     }
@@ -387,6 +468,11 @@ export default function CorvetteBuilder() {
                     <div
                       key={key}
                       onClick={() => handleCellClick(col, row)}
+                      title={
+                        hasOtherLayer
+                          ? "Auf einer anderen Ebene belegt"
+                          : undefined
+                      }
                       className={`relative border rounded cursor-pointer transition-all flex items-center justify-center text-xs font-bold select-none
                         ${
                           placed
@@ -395,6 +481,8 @@ export default function CorvetteBuilder() {
                               : "border-transparent"
                             : previewHighlight
                             ? "border-yellow-500/60 bg-yellow-500/10"
+                            : hasOtherLayer
+                            ? "border-gray-600 bg-gray-800/40 border-dashed"
                             : "border-gray-700 bg-gray-800/60 hover:bg-gray-700/60 hover:border-gray-500"
                         }
                       `}
@@ -424,6 +512,9 @@ export default function CorvetteBuilder() {
                           )}
                         </div>
                       )}
+                      {hasOtherLayer && (
+                        <span className="text-gray-600 text-[10px]">·</span>
+                      )}
                     </div>
                   );
                 })
@@ -434,11 +525,13 @@ export default function CorvetteBuilder() {
           {/* Stats */}
           <div className="bg-gray-900 border border-gray-700 rounded-lg p-3">
             <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">
-              Platzierte Bauteile ({placedParts.length})
+              Platzierte Bauteile gesamt ({placedParts.length})
             </p>
             <div className="flex flex-wrap gap-2">
               {placedParts.length === 0 && (
-                <span className="text-xs text-gray-600">Noch keine Bauteile platziert.</span>
+                <span className="text-xs text-gray-600">
+                  Noch keine Bauteile platziert.
+                </span>
               )}
               {Array.from(new Set(placedParts.map((p) => p.partId))).map(
                 (pid) => {
