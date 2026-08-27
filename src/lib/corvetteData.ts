@@ -132,8 +132,8 @@ export const PARTS: PartDefinition[] = [
     description: "Modular hold for resources and mission freight.",
   },
   {
-    id: "crew-quarter",
-    name: "Crew Quarter",
+    id: "crew-quarters",
+    name: "Crew Quarters",
     category: "Support",
     maxCount: 3,
     w: 1,
