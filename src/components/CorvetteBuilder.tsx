@@ -63,7 +63,14 @@ function canPlace(
   return true;
 }
 
-const LAYER_LABELS = ["Untere Ebene", "Mittlere Ebene", "Obere Ebene"];
+const LAYER_LABELS = [
+  "Ebene 1 (Unterst)",
+  "Ebene 2",
+  "Ebene 3",
+  "Ebene 4",
+  "Ebene 5",
+  "Ebene 6 (Oberst)",
+];
 
 export default function CorvetteBuilder() {
   const [placedParts, setPlacedParts] = useState<PlacedPart[]>([]);
@@ -379,7 +386,7 @@ export default function CorvetteBuilder() {
           )}
 
           {/* Layer tabs */}
-          <div className="flex gap-1">
+          <div className="flex gap-1 flex-wrap">
             {Array.from({ length: GRID_LAYERS }).map((_, i) => {
               const count = partsOnLayer(i);
               return (
@@ -389,16 +396,16 @@ export default function CorvetteBuilder() {
                     setCurrentLayer(i);
                     setSelectedInstanceId(null);
                   }}
-                  className={`flex-1 py-2 px-3 rounded-t text-xs font-semibold border-b-2 transition-colors ${
+                  className={`flex-1 min-w-[80px] py-1.5 px-2 rounded-t text-xs font-semibold border-b-2 transition-colors ${
                     currentLayer === i
                       ? "bg-gray-800 border-yellow-400 text-yellow-300"
                       : "bg-gray-900 border-gray-700 text-gray-400 hover:text-gray-200 hover:border-gray-500"
                   }`}
                 >
-                  {LAYER_LABELS[i]}
+                  E{i + 1}
                   {count > 0 && (
                     <span
-                      className={`ml-1.5 text-[10px] px-1 rounded-full ${
+                      className={`ml-1 text-[10px] px-1 rounded-full ${
                         currentLayer === i
                           ? "bg-yellow-500/30 text-yellow-300"
                           : "bg-gray-700 text-gray-400"

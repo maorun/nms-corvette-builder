@@ -21,9 +21,9 @@ export interface PartDefinition {
   description: string;
 }
 
-export const GRID_COLS = 8;
+export const GRID_COLS = 10;
 export const GRID_ROWS = 6;
-export const GRID_LAYERS = 3;
+export const GRID_LAYERS = 6;
 
 export const PARTS: PartDefinition[] = [
   // Weapons
