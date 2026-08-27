@@ -230,7 +230,7 @@ export default function CorvetteBuilder() {
               NMS Corvette Builder
             </h1>
             <p className="text-gray-400 text-xs">
-              No Man&apos;s Sky – Offline Korvetten-Baumeister
+              No Man&apos;s Sky – Offline Korvetten-Werftplaner
             </p>
           </div>
         </div>
@@ -422,8 +422,11 @@ export default function CorvetteBuilder() {
           {/* Grid */}
           <div className="bg-gray-900 border border-gray-700 rounded-lg rounded-tl-none p-4 overflow-auto flex-1">
             <p className="text-xs text-gray-500 mb-3 uppercase tracking-wider">
-              {LAYER_LABELS[currentLayer]} – Technik-Gitter ({GRID_COLS}×
+              {LAYER_LABELS[currentLayer]} – Bau-Gitter ({GRID_COLS}×
               {GRID_ROWS})
+            </p>
+            <p className="text-[11px] text-gray-600 mb-3 -mt-2">
+              Strukturelle Baumodule statt Upgrade-Module
             </p>
             <div
               className="grid gap-1"

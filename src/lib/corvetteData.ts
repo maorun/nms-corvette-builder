@@ -1,17 +1,17 @@
 export type PartCategory =
-  | "Weapons"
-  | "Shields"
-  | "Engines"
-  | "Hyperdrive"
-  | "Scanning"
-  | "Mining"
+  | "Hull"
+  | "Bridge"
+  | "Engine"
+  | "Power"
+  | "Support"
+  | "Defense"
   | "Utility";
 
 export interface PartDefinition {
   id: string;
   name: string;
   category: PartCategory;
-  /** Maximum number of times this part can be installed */
+  /** Maximum number of times this module can be built */
   maxCount: number;
   /** Width in grid cells */
   w: number;
@@ -26,202 +26,162 @@ export const GRID_ROWS = 6;
 export const GRID_LAYERS = 6;
 
 export const PARTS: PartDefinition[] = [
-  // Weapons
+  // Hull
   {
-    id: "positron-ejector",
-    name: "Positron Ejector",
-    category: "Weapons",
+    id: "central-keel",
+    name: "Central Keel",
+    category: "Hull",
+    maxCount: 1,
+    w: 3,
+    h: 1,
+    color: "#64748b",
+    description: "Main structural spine of the corvette.",
+  },
+  {
+    id: "port-hull-segment",
+    name: "Port Hull Segment",
+    category: "Hull",
+    maxCount: 4,
+    w: 2,
+    h: 1,
+    color: "#475569",
+    description: "Outer plating segment for the left side.",
+  },
+  {
+    id: "starboard-hull-segment",
+    name: "Starboard Hull Segment",
+    category: "Hull",
+    maxCount: 4,
+    w: 2,
+    h: 1,
+    color: "#334155",
+    description: "Outer plating segment for the right side.",
+  },
+  // Bridge
+  {
+    id: "command-bridge",
+    name: "Command Bridge",
+    category: "Bridge",
+    maxCount: 1,
+    w: 2,
+    h: 1,
+    color: "#f59e0b",
+    description: "Primary command and navigation center.",
+  },
+  {
+    id: "sensor-mast",
+    name: "Sensor Mast",
+    category: "Bridge",
+    maxCount: 1,
+    w: 1,
+    h: 2,
+    color: "#fbbf24",
+    description: "Extended sensor stack for detection and recon.",
+  },
+  // Engine
+  {
+    id: "primary-thruster-bank",
+    name: "Primary Thruster Bank",
+    category: "Engine",
+    maxCount: 2,
+    w: 2,
+    h: 1,
+    color: "#22c55e",
+    description: "Main propulsion array for sustained thrust.",
+  },
+  {
+    id: "maneuvering-thruster",
+    name: "Maneuvering Thruster",
+    category: "Engine",
+    maxCount: 4,
+    w: 1,
+    h: 1,
+    color: "#16a34a",
+    description: "Provides directional control and turning force.",
+  },
+  // Power
+  {
+    id: "reactor-core",
+    name: "Reactor Core",
+    category: "Power",
+    maxCount: 1,
+    w: 2,
+    h: 1,
+    color: "#8b5cf6",
+    description: "Primary energy source for all ship systems.",
+  },
+  {
+    id: "power-distributor",
+    name: "Power Distributor",
+    category: "Power",
     maxCount: 3,
     w: 1,
     h: 1,
-    color: "#ef4444",
-    description: "Rapid-fire scatter weapon, effective at close range.",
+    color: "#7c3aed",
+    description: "Balances and routes reactor output to subsystems.",
+  },
+  // Support
+  {
+    id: "cargo-bay",
+    name: "Cargo Bay",
+    category: "Support",
+    maxCount: 4,
+    w: 2,
+    h: 1,
+    color: "#0ea5e9",
+    description: "Modular hold for resources and mission freight.",
   },
   {
-    id: "cyclotron-ballista",
-    name: "Cyclotron Ballista",
-    category: "Weapons",
+    id: "crew-quarter",
+    name: "Crew Quarter",
+    category: "Support",
     maxCount: 3,
     w: 1,
     h: 1,
-    color: "#f97316",
-    description: "High-damage projectile weapon.",
+    color: "#0284c7",
+    description: "Living module for crew accommodation.",
   },
+  // Defense
   {
-    id: "infraknife-accelerator",
-    name: "Infraknife Accelerator",
-    category: "Weapons",
-    maxCount: 3,
-    w: 1,
-    h: 1,
-    color: "#eab308",
-    description: "Fires a burst of high-velocity rounds.",
-  },
-  {
-    id: "photon-cannon",
-    name: "Photon Cannon",
-    category: "Weapons",
-    maxCount: 3,
-    w: 1,
-    h: 1,
-    color: "#a855f7",
-    description: "Standard energy cannon, reliable and accurate.",
-  },
-  {
-    id: "phase-beam",
-    name: "Phase Beam",
-    category: "Weapons",
-    maxCount: 3,
-    w: 1,
-    h: 1,
-    color: "#06b6d4",
-    description: "Transfers shield energy to the enemy.",
-  },
-  // Shields
-  {
-    id: "deflector-shield",
-    name: "Deflector Shield",
-    category: "Shields",
+    id: "shield-emitter",
+    name: "Shield Emitter",
+    category: "Defense",
     maxCount: 3,
     w: 1,
     h: 1,
     color: "#3b82f6",
-    description: "Increases shield strength.",
+    description: "Projects local defensive shielding around the hull.",
   },
   {
-    id: "shield-module",
-    name: "Shield Module",
-    category: "Shields",
-    maxCount: 3,
-    w: 1,
-    h: 1,
-    color: "#6366f1",
-    description: "Additional shield recharge module.",
-  },
-  // Engines
-  {
-    id: "pulse-engine",
-    name: "Pulse Engine",
-    category: "Engines",
-    maxCount: 3,
-    w: 2,
-    h: 1,
-    color: "#22c55e",
-    description: "Boosts sub-light speed and maneuverability.",
-  },
-  {
-    id: "launch-thruster",
-    name: "Launch Thruster",
-    category: "Engines",
-    maxCount: 3,
-    w: 1,
-    h: 1,
-    color: "#16a34a",
-    description: "Reduces launch fuel consumption.",
-  },
-  // Hyperdrive
-  {
-    id: "hyperdrive",
-    name: "Hyperdrive",
-    category: "Hyperdrive",
-    maxCount: 3,
-    w: 2,
-    h: 1,
-    color: "#8b5cf6",
-    description: "Enables faster-than-light travel between star systems.",
-  },
-  {
-    id: "cadmium-drive",
-    name: "Cadmium Drive",
-    category: "Hyperdrive",
-    maxCount: 1,
-    w: 1,
-    h: 1,
-    color: "#7c3aed",
-    description: "Allows travel to red-star systems.",
-  },
-  {
-    id: "emeril-drive",
-    name: "Emeril Drive",
-    category: "Hyperdrive",
-    maxCount: 1,
-    w: 1,
-    h: 1,
-    color: "#6d28d9",
-    description: "Allows travel to green-star systems.",
-  },
-  {
-    id: "indium-drive",
-    name: "Indium Drive",
-    category: "Hyperdrive",
-    maxCount: 1,
-    w: 1,
-    h: 1,
-    color: "#5b21b6",
-    description: "Allows travel to blue-star systems.",
-  },
-  // Scanning
-  {
-    id: "combat-scanner",
-    name: "Combat Scanner",
-    category: "Scanning",
-    maxCount: 3,
-    w: 1,
-    h: 1,
-    color: "#14b8a6",
-    description: "Identifies enemy weaknesses.",
-  },
-  {
-    id: "long-range-scanner",
-    name: "Long Range Scanner",
-    category: "Scanning",
-    maxCount: 3,
-    w: 1,
-    h: 1,
-    color: "#0d9488",
-    description: "Extends scanner range significantly.",
-  },
-  // Mining
-  {
-    id: "mining-laser",
-    name: "Mining Laser",
-    category: "Mining",
-    maxCount: 3,
-    w: 1,
-    h: 1,
-    color: "#f59e0b",
-    description: "Extracts resources from asteroids.",
-  },
-  // Utility
-  {
-    id: "cargo-pod",
-    name: "Cargo Pod",
-    category: "Utility",
+    id: "point-defense-turret",
+    name: "Point Defense Turret",
+    category: "Defense",
     maxCount: 4,
     w: 1,
     h: 1,
-    color: "#78716c",
-    description: "Increases cargo capacity.",
+    color: "#1d4ed8",
+    description: "Automated anti-fighter and missile interception.",
+  },
+  // Utility
+  {
+    id: "docking-clamp",
+    name: "Docking Clamp",
+    category: "Utility",
+    maxCount: 2,
+    w: 1,
+    h: 2,
+    color: "#f97316",
+    description: "External docking latch for shuttles and drones.",
   },
   {
-    id: "economy-scanner",
-    name: "Economy Scanner",
+    id: "maintenance-access",
+    name: "Maintenance Access",
     category: "Utility",
-    maxCount: 1,
+    maxCount: 2,
     w: 1,
     h: 1,
-    color: "#d97706",
-    description: "Scans trade economies in nearby systems.",
-  },
-  {
-    id: "conflict-scanner",
-    name: "Conflict Scanner",
-    category: "Utility",
-    maxCount: 1,
-    w: 1,
-    h: 1,
-    color: "#dc2626",
-    description: "Detects conflict levels in nearby systems.",
+    color: "#ea580c",
+    description: "Service hatch for repairs and internal routing.",
   },
 ];
 
