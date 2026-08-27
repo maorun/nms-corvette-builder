@@ -426,7 +426,7 @@ export default function CorvetteBuilder() {
               {GRID_ROWS})
             </p>
             <p className="text-[11px] text-gray-600 mb-3 -mt-2">
-              Echte NMS-Module aus dem Spiel
+              Strukturelle Korvetten-Baumodule
             </p>
             <div
               className="grid gap-1"
