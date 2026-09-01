@@ -573,8 +573,8 @@ export const PARTS: PartDefinition[] = [
     description: "Hydraulic support struts for landing assemblies.",
   },
   {
-    id: "landing-gear",
-    name: "Landing Gear",
+    id: "standard-landing-gear",
+    name: "Standard Landing Gear",
     category: "Landing Gear",
     maxCount: 4,
     w: 1,
