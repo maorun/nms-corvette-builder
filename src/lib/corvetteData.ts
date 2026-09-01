@@ -1,21 +1,18 @@
 export type PartCategory =
-  | "Weapons"
-  | "Shields"
-  | "Engines"
-  | "Hyperdrive"
-  | "Scanning"
-  | "Mining"
-  | "Utility";
+  | "Weapon"
+  | "Engine"
+  | "Reactor"
+  | "Landing"
+  | "Habitation"
+  | "Cockpit"
+  | "Shield";
 
 export interface PartDefinition {
   id: string;
   name: string;
   category: PartCategory;
-  /** Maximum number of times this part can be installed */
   maxCount: number;
-  /** Width in grid cells */
   w: number;
-  /** Height in grid cells */
   h: number;
   color: string;
   description: string;
@@ -26,213 +23,131 @@ export const GRID_ROWS = 6;
 export const GRID_LAYERS = 6;
 
 export const PARTS: PartDefinition[] = [
-  // Weapons
+  // Weapon
   {
-    id: "positron-ejector",
-    name: "Positron Ejector",
-    category: "Weapons",
-    maxCount: 3,
-    w: 1,
-    h: 1,
+    id: "photon-cannon-array",
+    name: "Photon Cannon array",
+    category: "Weapon",
+    maxCount: 2,
+    w: 2,
+    h: 2,
     color: "#ef4444",
-    description: "Rapid-fire scatter weapon, effective at close range.",
+    description: "Waffensystem — Kampf-Funktion.",
   },
+  // Engine
   {
-    id: "cyclotron-ballista",
-    name: "Cyclotron Ballista",
-    category: "Weapons",
-    maxCount: 3,
-    w: 1,
-    h: 1,
-    color: "#f97316",
-    description: "High-damage projectile weapon.",
-  },
-  {
-    id: "infraknife-accelerator",
-    name: "Infraknife Accelerator",
-    category: "Weapons",
-    maxCount: 3,
-    w: 1,
-    h: 1,
-    color: "#eab308",
-    description: "Fires a burst of high-velocity rounds.",
-  },
-  {
-    id: "photon-cannon",
-    name: "Photon Cannon",
-    category: "Weapons",
-    maxCount: 3,
-    w: 1,
-    h: 1,
-    color: "#a855f7",
-    description: "Standard energy cannon, reliable and accurate.",
-  },
-  {
-    id: "phase-beam",
-    name: "Phase Beam",
-    category: "Weapons",
-    maxCount: 3,
-    w: 1,
-    h: 1,
-    color: "#06b6d4",
-    description: "Transfers shield energy to the enemy.",
-  },
-  // Shields
-  {
-    id: "deflector-shield",
-    name: "Deflector Shield",
-    category: "Shields",
-    maxCount: 3,
-    w: 1,
-    h: 1,
-    color: "#3b82f6",
-    description: "Increases shield strength.",
-  },
-  {
-    id: "shield-module",
-    name: "Shield Module",
-    category: "Shields",
-    maxCount: 3,
-    w: 1,
-    h: 1,
-    color: "#6366f1",
-    description: "Additional shield recharge module.",
-  },
-  // Engines
-  {
-    id: "pulse-engine",
-    name: "Pulse Engine",
-    category: "Engines",
-    maxCount: 3,
+    id: "arcadia-heavy-booster",
+    name: "Arcadia Heavy Booster",
+    category: "Engine",
+    maxCount: 2,
     w: 2,
     h: 1,
     color: "#22c55e",
-    description: "Boosts sub-light speed and maneuverability.",
+    description: "Main engines — Arcadia Heavy Booster.",
   },
   {
-    id: "launch-thruster",
-    name: "Launch Thruster",
-    category: "Engines",
-    maxCount: 3,
+    id: "ambasador-sublight-thruster",
+    name: "Ambasador sublight thruster",
+    category: "Engine",
+    maxCount: 2,
     w: 1,
     h: 1,
     color: "#16a34a",
-    description: "Reduces launch fuel consumption.",
+    description: "Main engines — Ambasador sublight thruster.",
   },
-  // Hyperdrive
+  // Reactor
   {
-    id: "hyperdrive",
-    name: "Hyperdrive",
-    category: "Hyperdrive",
+    id: "zenith-reactor",
+    name: "Zenith reactor",
+    category: "Reactor",
+    maxCount: 3,
+    w: 1,
+    h: 1,
+    color: "#fbbf24",
+    description: "Reaktor — Zenith reactor.",
+  },
+  {
+    id: "ceto-class-reactor",
+    name: "Ceto-class reactor",
+    category: "Reactor",
     maxCount: 3,
     w: 2,
     h: 1,
-    color: "#8b5cf6",
-    description: "Enables faster-than-light travel between star systems.",
-  },
-  {
-    id: "cadmium-drive",
-    name: "Cadmium Drive",
-    category: "Hyperdrive",
-    maxCount: 1,
-    w: 1,
-    h: 1,
-    color: "#7c3aed",
-    description: "Allows travel to red-star systems.",
-  },
-  {
-    id: "emeril-drive",
-    name: "Emeril Drive",
-    category: "Hyperdrive",
-    maxCount: 1,
-    w: 1,
-    h: 1,
-    color: "#6d28d9",
-    description: "Allows travel to green-star systems.",
-  },
-  {
-    id: "indium-drive",
-    name: "Indium Drive",
-    category: "Hyperdrive",
-    maxCount: 1,
-    w: 1,
-    h: 1,
-    color: "#5b21b6",
-    description: "Allows travel to blue-star systems.",
-  },
-  // Scanning
-  {
-    id: "combat-scanner",
-    name: "Combat Scanner",
-    category: "Scanning",
-    maxCount: 3,
-    w: 1,
-    h: 1,
-    color: "#14b8a6",
-    description: "Identifies enemy weaknesses.",
-  },
-  {
-    id: "long-range-scanner",
-    name: "Long Range Scanner",
-    category: "Scanning",
-    maxCount: 3,
-    w: 1,
-    h: 1,
-    color: "#0d9488",
-    description: "Extends scanner range significantly.",
-  },
-  // Mining
-  {
-    id: "mining-laser",
-    name: "Mining Laser",
-    category: "Mining",
-    maxCount: 3,
-    w: 1,
-    h: 1,
     color: "#f59e0b",
-    description: "Extracts resources from asteroids.",
+    description: "Reaktor — Ceto-class reactor.",
   },
-  // Utility
+  // Landing
   {
-    id: "cargo-pod",
-    name: "Cargo Pod",
-    category: "Utility",
+    id: "mag-field-landing-thrusters-launch",
+    name: "Mag-field landing thrusters (Launch)",
+    category: "Landing",
     maxCount: 4,
     w: 1,
     h: 1,
-    color: "#78716c",
-    description: "Increases cargo capacity.",
+    color: "#9ca3af",
+    description: "Landing Gear — Mag-field landing thrusters (Launch).",
   },
+  // Habitation
   {
-    id: "economy-scanner",
-    name: "Economy Scanner",
-    category: "Utility",
-    maxCount: 1,
+    id: "thunderbird-hab",
+    name: "Thunderbird Hab",
+    category: "Habitation",
+    maxCount: 16,
     w: 1,
     h: 1,
-    color: "#d97706",
-    description: "Scans trade economies in nearby systems.",
+    color: "#34d399",
+    description: "Habitation — Thunderbird Hab (+3 cargo).",
   },
   {
-    id: "conflict-scanner",
-    name: "Conflict Scanner",
-    category: "Utility",
-    maxCount: 1,
+    id: "thunderbird-walkway",
+    name: "Thunderbird Walkway",
+    category: "Habitation",
+    maxCount: 12,
     w: 1,
     h: 1,
-    color: "#dc2626",
-    description: "Detects conflict levels in nearby systems.",
+    color: "#60a5fa",
+    description: "Habitation — Thunderbird Walkway (+1 cargo).",
+  },
+  // Cockpit
+  {
+    id: "ambassador-cockpit",
+    name: "Ambassador Cockpit",
+    category: "Cockpit",
+    maxCount: 1,
+    w: 1,
+    h: 2,
+    color: "#ed64a6",
+    description: "Flight Control — Ambassador Cockpit.",
+  },
+  {
+    id: "titan-cockpit",
+    name: "Titan Cockpit",
+    category: "Cockpit",
+    maxCount: 1,
+    w: 1,
+    h: 2,
+    color: "#a855f7",
+    description: "Flight Control — Titan Cockpit.",
+  },
+  {
+    id: "thunderbird-cockpit",
+    name: "Thunderbird Cockpit",
+    category: "Cockpit",
+    maxCount: 1,
+    w: 1,
+    h: 2,
+    color: "#ec4899",
+    description: "Flight Control — Thunderbird Cockpit.",
+  },
+  // Shield
+  {
+    id: "high-energy-shield",
+    name: "High energy shield",
+    category: "Shield",
+    maxCount: 2,
+    w: 1,
+    h: 1,
+    color: "#3b82f6",
+    description: "Shields — High energy shield.",
   },
 ];
-
-export type Rotation = 0 | 90 | 180 | 270;
-
-export interface PlacedPart {
-  instanceId: string;
-  partId: string;
-  col: number;
-  row: number;
-  /** Vertical layer (0 = bottom, GRID_LAYERS-1 = top) */
-  layer: number;
-  rotation: Rotation;
-}
