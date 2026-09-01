@@ -269,6 +269,26 @@ export const PARTS: PartDefinition[] = [
     color: "#164e63",
     description: "Firebox-series armoured cowling shell.",
   },
+  {
+    id: "speedbird-fairing",
+    name: "Speedbird Fairing",
+    category: "Cowling",
+    maxCount: 3,
+    w: 2,
+    h: 1,
+    color: "#134e4a",
+    description: "Speedbird fairing shell connector.",
+  },
+  {
+    id: "firebox-fairing",
+    name: "Firebox Fairing",
+    category: "Cowling",
+    maxCount: 3,
+    w: 2,
+    h: 1,
+    color: "#0f766e",
+    description: "Firebox fairing shell connector.",
+  },
   // Diffuser
   {
     id: "speedbird-diffuser",
@@ -698,26 +718,6 @@ export const PARTS: PartDefinition[] = [
     h: 1,
     color: "#115e59",
     description: "Ceto-class reactor core section.",
-  },
-  {
-    id: "speedbird-fairing",
-    name: "Speedbird Fairing",
-    category: "Cowling",
-    maxCount: 3,
-    w: 2,
-    h: 1,
-    color: "#134e4a",
-    description: "Speedbird fairing shell connector.",
-  },
-  {
-    id: "firebox-fairing",
-    name: "Firebox Fairing",
-    category: "Cowling",
-    maxCount: 3,
-    w: 2,
-    h: 1,
-    color: "#0f766e",
-    description: "Firebox fairing shell connector.",
   },
 ];
 
