@@ -14,6 +14,8 @@ export interface PartDefinition {
   category: PartCategory;
   /** Maximum number of times this module can be built */
   maxCount: number;
+  /** Optional shared pool key for variant-exclusive part limits */
+  countGroup?: string;
   /** Width in grid cells */
   w: number;
   /** Height in grid cells */
@@ -33,30 +35,33 @@ export const PARTS: PartDefinition[] = [
     name: "Titan-Class Cockpit",
     category: "Cockpit",
     maxCount: 1,
+    countGroup: "cockpit",
     w: 2,
     h: 1,
     color: "#f59e0b",
-    description: "Corvette cockpit section.",
+    description: "Heavy Titan-series command cockpit module.",
   },
   {
     id: "ambassador-class-cockpit",
     name: "Ambassador-Class Cockpit",
     category: "Cockpit",
     maxCount: 1,
+    countGroup: "cockpit",
     w: 2,
     h: 1,
     color: "#d97706",
-    description: "Corvette cockpit section.",
+    description: "Balanced Ambassador-series command cockpit module.",
   },
   {
     id: "thunderbird-class-cockpit",
     name: "Thunderbird-Class Cockpit",
     category: "Cockpit",
     maxCount: 1,
+    countGroup: "cockpit",
     w: 2,
     h: 1,
     color: "#b45309",
-    description: "Corvette cockpit section.",
+    description: "Compact Thunderbird-series command cockpit module.",
   },
   // Hab
   {
@@ -67,7 +72,7 @@ export const PARTS: PartDefinition[] = [
     w: 2,
     h: 1,
     color: "#0ea5e9",
-    description: "Habitation build element.",
+    description: "Titan-series habitation bay segment.",
   },
   {
     id: "ambassador-class-hab",
@@ -77,7 +82,7 @@ export const PARTS: PartDefinition[] = [
     w: 2,
     h: 1,
     color: "#0284c7",
-    description: "Habitation build element.",
+    description: "Ambassador-series habitation bay segment.",
   },
   {
     id: "thunderbird-class-hab",
@@ -87,7 +92,7 @@ export const PARTS: PartDefinition[] = [
     w: 2,
     h: 1,
     color: "#0369a1",
-    description: "Habitation build element.",
+    description: "Thunderbird-series habitation bay segment.",
   },
   // Walkway
   {
@@ -98,7 +103,7 @@ export const PARTS: PartDefinition[] = [
     w: 1,
     h: 2,
     color: "#64748b",
-    description: "Walkway connector build element.",
+    description: "Titan-series internal connector walkway.",
   },
   {
     id: "ambassador-class-walkway",
@@ -108,7 +113,7 @@ export const PARTS: PartDefinition[] = [
     w: 1,
     h: 2,
     color: "#475569",
-    description: "Walkway connector build element.",
+    description: "Ambassador-series internal connector walkway.",
   },
   {
     id: "thunderbird-class-walkway",
@@ -118,7 +123,7 @@ export const PARTS: PartDefinition[] = [
     w: 1,
     h: 2,
     color: "#334155",
-    description: "Walkway connector build element.",
+    description: "Thunderbird-series internal connector walkway.",
   },
   // Aerofoil
   {
@@ -129,7 +134,7 @@ export const PARTS: PartDefinition[] = [
     w: 2,
     h: 1,
     color: "#22c55e",
-    description: "Aerofoil hull build element.",
+    description: "Supercruise-pattern aerofoil hull panel.",
   },
   {
     id: "arcadia-aerofoil",
@@ -139,7 +144,7 @@ export const PARTS: PartDefinition[] = [
     w: 2,
     h: 1,
     color: "#16a34a",
-    description: "Aerofoil hull build element.",
+    description: "Arcadia-pattern aerofoil hull panel.",
   },
   {
     id: "argonaut-aerofoil",
@@ -149,7 +154,7 @@ export const PARTS: PartDefinition[] = [
     w: 2,
     h: 1,
     color: "#15803d",
-    description: "Aerofoil hull build element.",
+    description: "Argonaut-pattern aerofoil hull panel.",
   },
   // Wing
   {
@@ -160,7 +165,7 @@ export const PARTS: PartDefinition[] = [
     w: 2,
     h: 1,
     color: "#3b82f6",
-    description: "Wing build element.",
+    description: "Titan-series lateral wing assembly.",
   },
   {
     id: "ambassador-wing-module",
@@ -170,7 +175,7 @@ export const PARTS: PartDefinition[] = [
     w: 2,
     h: 1,
     color: "#2563eb",
-    description: "Wing build element.",
+    description: "Ambassador-series lateral wing assembly.",
   },
   {
     id: "osprey-wing-module",
@@ -180,7 +185,7 @@ export const PARTS: PartDefinition[] = [
     w: 2,
     h: 1,
     color: "#1d4ed8",
-    description: "Wing build element.",
+    description: "Osprey-series lateral wing assembly.",
   },
   // Thruster
   {
@@ -191,7 +196,7 @@ export const PARTS: PartDefinition[] = [
     w: 1,
     h: 2,
     color: "#ef4444",
-    description: "Large thruster build element.",
+    description: "Titan-series heavy booster thruster housing.",
   },
   {
     id: "titan-sublight-thruster",
@@ -201,7 +206,7 @@ export const PARTS: PartDefinition[] = [
     w: 1,
     h: 2,
     color: "#dc2626",
-    description: "Sublight thruster build element.",
+    description: "Titan-series sublight propulsion nozzle.",
   },
   {
     id: "ambassador-heavy-booster",
@@ -211,7 +216,7 @@ export const PARTS: PartDefinition[] = [
     w: 1,
     h: 2,
     color: "#b91c1c",
-    description: "Large thruster build element.",
+    description: "Ambassador-series heavy booster thruster housing.",
   },
   // Landing Bay
   {
@@ -219,30 +224,33 @@ export const PARTS: PartDefinition[] = [
     name: "Titan-Class Landing Bay",
     category: "Landing Bay",
     maxCount: 2,
+    countGroup: "landing-bay",
     w: 2,
     h: 2,
     color: "#8b5cf6",
-    description: "Landing bay build element.",
+    description: "Titan-series landing and docking bay section.",
   },
   {
     id: "ambassador-class-landing-bay",
     name: "Ambassador-Class Landing Bay",
     category: "Landing Bay",
     maxCount: 2,
+    countGroup: "landing-bay",
     w: 2,
     h: 2,
     color: "#7c3aed",
-    description: "Landing bay build element.",
+    description: "Ambassador-series landing and docking bay section.",
   },
   {
     id: "thunderbird-class-landing-bay",
     name: "Thunderbird-Class Landing Bay",
     category: "Landing Bay",
     maxCount: 2,
+    countGroup: "landing-bay",
     w: 2,
     h: 2,
     color: "#6d28d9",
-    description: "Landing bay build element.",
+    description: "Thunderbird-series landing and docking bay section.",
   },
   // Reactor
   {
@@ -250,30 +258,33 @@ export const PARTS: PartDefinition[] = [
     name: "Zenith-Class Reactor",
     category: "Reactor",
     maxCount: 1,
+    countGroup: "reactor",
     w: 2,
     h: 1,
     color: "#14b8a6",
-    description: "Reactor build element.",
+    description: "Zenith-class reactor core section.",
   },
   {
     id: "medusa-class-reactor",
     name: "Medusa-Class Reactor",
     category: "Reactor",
     maxCount: 1,
+    countGroup: "reactor",
     w: 2,
     h: 1,
     color: "#0d9488",
-    description: "Reactor build element.",
+    description: "Medusa-class reactor core section.",
   },
   {
     id: "azimuth-class-reactor",
     name: "Azimuth-Class Reactor",
     category: "Reactor",
     maxCount: 1,
+    countGroup: "reactor",
     w: 2,
     h: 1,
     color: "#0f766e",
-    description: "Reactor build element.",
+    description: "Azimuth-class reactor core section.",
   },
 ];
 

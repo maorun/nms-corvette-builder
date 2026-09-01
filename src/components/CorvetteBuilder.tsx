@@ -88,6 +88,17 @@ export default function CorvetteBuilder() {
     [placedParts]
   );
 
+  const countByLimitKey = useCallback(
+    (partDef: PartDefinition) => {
+      if (!partDef.countGroup) return countByPartId(partDef.id);
+      return placedParts.filter((p) => {
+        const placedDef = PARTS.find((d) => d.id === p.partId);
+        return placedDef?.countGroup === partDef.countGroup;
+      }).length;
+    },
+    [placedParts, countByPartId]
+  );
+
   const handleCellClick = useCallback(
     (col: number, row: number) => {
       // If an instance is selected, move it to this cell (on current layer)
@@ -135,7 +146,7 @@ export default function CorvetteBuilder() {
       // Place new part
       if (!selectedPartId) return;
       const def = PARTS.find((d) => d.id === selectedPartId)!;
-      if (countByPartId(selectedPartId) >= def.maxCount) return;
+      if (countByLimitKey(def) >= def.maxCount) return;
       if (
         !canPlace(placedParts, def, col, row, currentLayer, selectedRotation)
       )
@@ -159,7 +170,7 @@ export default function CorvetteBuilder() {
       selectedRotation,
       selectedInstanceId,
       currentLayer,
-      countByPartId,
+      countByLimitKey,
     ]
   );
 
@@ -278,7 +289,7 @@ export default function CorvetteBuilder() {
                   {cat}
                 </p>
                 {PARTS.filter((p) => p.category === cat).map((part) => {
-                  const count = countByPartId(part.id);
+                  const count = countByLimitKey(part);
                   const maxReached = count >= part.maxCount;
                   const isSelected = selectedPartId === part.id;
                   return (
