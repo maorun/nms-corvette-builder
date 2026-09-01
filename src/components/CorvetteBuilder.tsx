@@ -63,8 +63,19 @@ function canPlace(
   return true;
 }
 
+const GROUPED_PART_IDS = PARTS.reduce<Record<string, Set<string>>>(
+  (acc, part) => {
+    if (!part.countGroup) return acc;
+    if (!acc[part.countGroup]) acc[part.countGroup] = new Set<string>();
+    acc[part.countGroup].add(part.id);
+    return acc;
+  },
+  {}
+);
+const EMPTY_PART_SET = new Set<string>();
+
 const LAYER_LABELS = [
-  "Ebene 1 (Unterst)",
+  "Ebene 1 (Unterste)",
   "Ebene 2",
   "Ebene 3",
   "Ebene 4",
@@ -86,6 +97,18 @@ export default function CorvetteBuilder() {
     (partId: string) =>
       placedParts.filter((p) => p.partId === partId).length,
     [placedParts]
+  );
+
+  const countByLimitKey = useCallback(
+    (partDef: PartDefinition) => {
+      if (!partDef.countGroup) return countByPartId(partDef.id);
+      const groupedPartIds =
+        GROUPED_PART_IDS[partDef.countGroup] ?? EMPTY_PART_SET;
+      return placedParts.filter((p) => {
+        return groupedPartIds.has(p.partId);
+      }).length;
+    },
+    [placedParts, countByPartId]
   );
 
   const handleCellClick = useCallback(
@@ -135,7 +158,7 @@ export default function CorvetteBuilder() {
       // Place new part
       if (!selectedPartId) return;
       const def = PARTS.find((d) => d.id === selectedPartId)!;
-      if (countByPartId(selectedPartId) >= def.maxCount) return;
+      if (countByLimitKey(def) >= def.maxCount) return;
       if (
         !canPlace(placedParts, def, col, row, currentLayer, selectedRotation)
       )
@@ -159,7 +182,7 @@ export default function CorvetteBuilder() {
       selectedRotation,
       selectedInstanceId,
       currentLayer,
-      countByPartId,
+      countByLimitKey,
     ]
   );
 
@@ -230,7 +253,7 @@ export default function CorvetteBuilder() {
               NMS Corvette Builder
             </h1>
             <p className="text-gray-400 text-xs">
-              No Man&apos;s Sky – Offline Korvetten-Baumeister
+              No Man&apos;s Sky – Offline Korvetten-Werftplaner
             </p>
           </div>
         </div>
@@ -278,7 +301,7 @@ export default function CorvetteBuilder() {
                   {cat}
                 </p>
                 {PARTS.filter((p) => p.category === cat).map((part) => {
-                  const count = countByPartId(part.id);
+                  const count = countByLimitKey(part);
                   const maxReached = count >= part.maxCount;
                   const isSelected = selectedPartId === part.id;
                   return (
@@ -422,8 +445,11 @@ export default function CorvetteBuilder() {
           {/* Grid */}
           <div className="bg-gray-900 border border-gray-700 rounded-lg rounded-tl-none p-4 overflow-auto flex-1">
             <p className="text-xs text-gray-500 mb-3 uppercase tracking-wider">
-              {LAYER_LABELS[currentLayer]} – Technik-Gitter ({GRID_COLS}×
+              {LAYER_LABELS[currentLayer]} – Bau-Gitter ({GRID_COLS}×
               {GRID_ROWS})
+            </p>
+            <p className="text-[11px] text-gray-600 mb-3 -mt-2">
+              Strukturelle Korvetten-Baumodule
             </p>
             <div
               className="grid gap-1"
