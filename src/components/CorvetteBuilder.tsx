@@ -63,8 +63,19 @@ function canPlace(
   return true;
 }
 
+const GROUPED_PART_IDS = PARTS.reduce<Record<string, Set<string>>>(
+  (acc, part) => {
+    if (!part.countGroup) return acc;
+    if (!acc[part.countGroup]) acc[part.countGroup] = new Set<string>();
+    acc[part.countGroup].add(part.id);
+    return acc;
+  },
+  {}
+);
+const EMPTY_PART_SET = new Set<string>();
+
 const LAYER_LABELS = [
-  "Ebene 1 (Unterst)",
+  "Ebene 1 (Unterste)",
   "Ebene 2",
   "Ebene 3",
   "Ebene 4",
@@ -91,9 +102,10 @@ export default function CorvetteBuilder() {
   const countByLimitKey = useCallback(
     (partDef: PartDefinition) => {
       if (!partDef.countGroup) return countByPartId(partDef.id);
+      const groupedPartIds =
+        GROUPED_PART_IDS[partDef.countGroup] ?? EMPTY_PART_SET;
       return placedParts.filter((p) => {
-        const placedDef = PARTS.find((d) => d.id === p.partId);
-        return placedDef?.countGroup === partDef.countGroup;
+        return groupedPartIds.has(p.partId);
       }).length;
     },
     [placedParts, countByPartId]
