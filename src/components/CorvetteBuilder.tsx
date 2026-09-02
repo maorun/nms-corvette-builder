@@ -1,15 +1,19 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import {
-  PARTS,
+  PARTS as BASE_PARTS,
+  PART_CATEGORIES,
   GRID_COLS,
   GRID_ROWS,
   GRID_LAYERS,
   PlacedPart,
   PartDefinition,
+  PartCategory,
   Rotation,
 } from "@/lib/corvetteData";
+
+const CUSTOM_PARTS_STORAGE_KEY = "nms_corvette_custom_parts";
 
 let instanceCounter = 0;
 function newInstanceId() {
@@ -38,6 +42,7 @@ function cellsOccupied(p: PlacedPart, def: PartDefinition): string[] {
 
 function canPlace(
   parts: PlacedPart[],
+  allParts: PartDefinition[],
   partDef: PartDefinition,
   col: number,
   row: number,
@@ -52,7 +57,8 @@ function canPlace(
   for (const p of parts) {
     if (p.instanceId === excludeInstanceId) continue;
     if (p.layer !== layer) continue;
-    const def = PARTS.find((d) => d.id === p.partId)!;
+    const def = allParts.find((d) => d.id === p.partId);
+    if (!def) continue;
     for (const cell of cellsOccupied(p, def)) occupied.add(cell);
   }
   for (let r = row; r < row + h; r++) {
@@ -62,16 +68,6 @@ function canPlace(
   }
   return true;
 }
-
-const GROUPED_PART_IDS = PARTS.reduce<Record<string, Set<string>>>(
-  (acc, part) => {
-    if (!part.countGroup) return acc;
-    if (!acc[part.countGroup]) acc[part.countGroup] = new Set<string>();
-    acc[part.countGroup].add(part.id);
-    return acc;
-  },
-  {}
-);
 const EMPTY_PART_SET = new Set<string>();
 
 const LAYER_LABELS = [
@@ -84,6 +80,30 @@ const LAYER_LABELS = [
 ];
 
 export default function CorvetteBuilder() {
+  const [customParts, setCustomParts] = useState<PartDefinition[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const stored = localStorage.getItem(CUSTOM_PARTS_STORAGE_KEY);
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch {
+      // ignore
+    }
+    return [];
+  });
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+  // New Custom Part form state
+  const [newPartName, setNewPartName] = useState("");
+  const [newPartCategory, setNewPartCategory] = useState<PartCategory>("Aerofoil");
+  const [newPartMaxCount, setNewPartMaxCount] = useState(4);
+  const [newPartW, setNewPartW] = useState(2);
+  const [newPartH, setNewPartH] = useState(1);
+  const [newPartColor, setNewPartColor] = useState("#3b82f6");
+  const [newPartDescription, setNewPartDescription] = useState("");
+
   const [placedParts, setPlacedParts] = useState<PlacedPart[]>([]);
   const [currentLayer, setCurrentLayer] = useState(0);
   const [selectedPartId, setSelectedPartId] = useState<string | null>(null);
@@ -92,6 +112,66 @@ export default function CorvetteBuilder() {
     null
   );
   const [tooltip, setTooltip] = useState<string | null>(null);
+
+  // Save custom parts to localStorage when updated
+  const saveCustomParts = useCallback((parts: PartDefinition[]) => {
+    setCustomParts(parts);
+    try {
+      localStorage.setItem(CUSTOM_PARTS_STORAGE_KEY, JSON.stringify(parts));
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const allParts = useMemo(() => {
+    return [...BASE_PARTS, ...customParts];
+  }, [customParts]);
+
+  const groupedPartIds = useMemo(() => {
+    return allParts.reduce<Record<string, Set<string>>>((acc, part) => {
+      if (!part.countGroup) return acc;
+      if (!acc[part.countGroup]) acc[part.countGroup] = new Set<string>();
+      acc[part.countGroup].add(part.id);
+      return acc;
+    }, {});
+  }, [allParts]);
+
+  const handleAddCustomPart = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPartName.trim()) return;
+
+    const slug = `custom-${Date.now()}-${newPartName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")}`;
+
+    const newPart: PartDefinition = {
+      id: slug,
+      name: newPartName.trim(),
+      category: newPartCategory,
+      maxCount: Math.max(1, Number(newPartMaxCount) || 1),
+      w: Math.max(1, Math.min(10, Number(newPartW) || 1)),
+      h: Math.max(1, Math.min(6, Number(newPartH) || 1)),
+      color: newPartColor || "#3b82f6",
+      description: newPartDescription.trim() || "Eigenes Bauteil",
+    };
+
+    saveCustomParts([...customParts, newPart]);
+    setSelectedPartId(newPart.id);
+    setIsAddModalOpen(false);
+
+    // Reset form
+    setNewPartName("");
+    setNewPartDescription("");
+  };
+
+  const handleDeleteCustomPart = (partId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    // Remove custom part and any placed instances of it
+    const updatedCustomParts = customParts.filter((p) => p.id !== partId);
+    saveCustomParts(updatedCustomParts);
+    setPlacedParts((prev) => prev.filter((p) => p.partId !== partId));
+    if (selectedPartId === partId) setSelectedPartId(null);
+  };
 
   const countByPartId = useCallback(
     (partId: string) =>
@@ -102,13 +182,12 @@ export default function CorvetteBuilder() {
   const countByLimitKey = useCallback(
     (partDef: PartDefinition) => {
       if (!partDef.countGroup) return countByPartId(partDef.id);
-      const groupedPartIds =
-        GROUPED_PART_IDS[partDef.countGroup] ?? EMPTY_PART_SET;
+      const partSet = groupedPartIds[partDef.countGroup] ?? EMPTY_PART_SET;
       return placedParts.filter((p) => {
-        return groupedPartIds.has(p.partId);
+        return partSet.has(p.partId);
       }).length;
     },
-    [placedParts, countByPartId]
+    [placedParts, countByPartId, groupedPartIds]
   );
 
   const handleCellClick = useCallback(
@@ -119,10 +198,11 @@ export default function CorvetteBuilder() {
           (p) => p.instanceId === selectedInstanceId
         );
         if (!inst) return;
-        const def = PARTS.find((d) => d.id === inst.partId)!;
+        const def = allParts.find((d) => d.id === inst.partId)!;
         if (
           canPlace(
             placedParts,
+            allParts,
             def,
             col,
             row,
@@ -146,21 +226,31 @@ export default function CorvetteBuilder() {
       // Check if clicking on an existing part on the current layer
       for (const p of placedParts) {
         if (p.layer !== currentLayer) continue;
-        const def = PARTS.find((d) => d.id === p.partId)!;
-        const cells = cellsOccupied(p, def);
-        if (cells.includes(`${col},${row}`)) {
-          setSelectedInstanceId(p.instanceId);
-          setSelectedPartId(null);
-          return;
+        const def = allParts.find((d) => d.id === p.partId);
+        if (def) {
+          const cells = cellsOccupied(p, def);
+          if (cells.includes(`${col},${row}`)) {
+            setSelectedInstanceId(p.instanceId);
+            setSelectedPartId(null);
+            return;
+          }
         }
       }
 
       // Place new part
       if (!selectedPartId) return;
-      const def = PARTS.find((d) => d.id === selectedPartId)!;
+      const def = allParts.find((d) => d.id === selectedPartId)!;
       if (countByLimitKey(def) >= def.maxCount) return;
       if (
-        !canPlace(placedParts, def, col, row, currentLayer, selectedRotation)
+        !canPlace(
+          placedParts,
+          allParts,
+          def,
+          col,
+          row,
+          currentLayer,
+          selectedRotation
+        )
       )
         return;
 
@@ -178,6 +268,7 @@ export default function CorvetteBuilder() {
     },
     [
       placedParts,
+      allParts,
       selectedPartId,
       selectedRotation,
       selectedInstanceId,
@@ -186,19 +277,34 @@ export default function CorvetteBuilder() {
     ]
   );
 
-  const rotatePart = useCallback((instanceId: string) => {
-    setPlacedParts((prev) =>
-      prev.map((p) => {
-        if (p.instanceId !== instanceId) return p;
-        const def = PARTS.find((d) => d.id === p.partId)!;
-        const nextRotation = ((p.rotation + 90) % 360) as Rotation;
-        if (canPlace(prev, def, p.col, p.row, p.layer, nextRotation, instanceId)) {
-          return { ...p, rotation: nextRotation };
-        }
-        return p;
-      })
-    );
-  }, []);
+  const rotatePart = useCallback(
+    (instanceId: string) => {
+      setPlacedParts((prev) =>
+        prev.map((p) => {
+          if (p.instanceId !== instanceId) return p;
+          const def = allParts.find((d) => d.id === p.partId);
+          if (!def) return p;
+          const nextRotation = ((p.rotation + 90) % 360) as Rotation;
+          if (
+            canPlace(
+              prev,
+              allParts,
+              def,
+              p.col,
+              p.row,
+              p.layer,
+              nextRotation,
+              instanceId
+            )
+          ) {
+            return { ...p, rotation: nextRotation };
+          }
+          return p;
+        })
+      );
+    },
+    [allParts]
+  );
 
   const removePart = useCallback((instanceId: string) => {
     setPlacedParts((prev) =>
@@ -217,7 +323,8 @@ export default function CorvetteBuilder() {
   const cellMap: Record<string, PlacedPart> = {};
   for (const p of placedParts) {
     if (p.layer !== currentLayer) continue;
-    const def = PARTS.find((d) => d.id === p.partId)!;
+    const def = allParts.find((d) => d.id === p.partId);
+    if (!def) continue;
     for (const cell of cellsOccupied(p, def)) {
       cellMap[cell] = p;
     }
@@ -227,13 +334,28 @@ export default function CorvetteBuilder() {
   const otherLayersCells = new Set<string>();
   for (const p of placedParts) {
     if (p.layer === currentLayer) continue;
-    const def = PARTS.find((d) => d.id === p.partId)!;
+    const def = allParts.find((d) => d.id === p.partId);
+    if (!def) continue;
     for (const cell of cellsOccupied(p, def)) {
       otherLayersCells.add(cell);
     }
   }
 
-  const categories = Array.from(new Set(PARTS.map((p) => p.category)));
+  // Filter parts based on search query
+  const filteredParts = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return allParts;
+    return allParts.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.category.toLowerCase().includes(q) ||
+        p.description.toLowerCase().includes(q)
+    );
+  }, [allParts, searchQuery]);
+
+  const categories = useMemo(() => {
+    return Array.from(new Set(filteredParts.map((p) => p.category)));
+  }, [filteredParts]);
 
   const selectedInstance = selectedInstanceId
     ? placedParts.find((p) => p.instanceId === selectedInstanceId)
@@ -290,52 +412,114 @@ export default function CorvetteBuilder() {
             </div>
           </div>
 
+          {/* Search & Custom Part Controls */}
+          <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-gray-400 uppercase tracking-wider">
+                Suche & Teile
+              </p>
+              <button
+                onClick={() => setIsAddModalOpen(true)}
+                className="text-xs bg-yellow-500 hover:bg-yellow-400 text-gray-950 font-semibold px-2 py-0.5 rounded transition-colors"
+              >
+                + Eigenes Teil
+              </button>
+            </div>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Bauteil suchen..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-gray-800 border border-gray-700 rounded px-2.5 py-1.5 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-yellow-500"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2 top-1.5 text-xs text-gray-400 hover:text-gray-200"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* Parts list */}
-          <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 overflow-y-auto max-h-[calc(100vh-280px)]">
+          <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 overflow-y-auto max-h-[calc(100vh-340px)]">
             <p className="text-xs text-gray-400 uppercase tracking-wider mb-3">
-              Bauteile
+              Bauteile ({filteredParts.length})
             </p>
-            {categories.map((cat) => (
-              <div key={cat} className="mb-4">
-                <p className="text-xs font-semibold text-gray-500 uppercase mb-1">
-                  {cat}
-                </p>
-                {PARTS.filter((p) => p.category === cat).map((part) => {
-                  const count = countByLimitKey(part);
-                  const maxReached = count >= part.maxCount;
-                  const isSelected = selectedPartId === part.id;
-                  return (
-                    <button
-                      key={part.id}
-                      disabled={maxReached}
-                      onClick={() => {
-                        setSelectedPartId(isSelected ? null : part.id);
-                        setSelectedInstanceId(null);
-                      }}
-                      onMouseEnter={() => setTooltip(part.description)}
-                      onMouseLeave={() => setTooltip(null)}
-                      className={`w-full text-left px-2 py-1.5 rounded mb-1 text-xs border transition-all ${
-                        maxReached
-                          ? "opacity-40 cursor-not-allowed bg-gray-800 border-gray-700 text-gray-500"
-                          : isSelected
-                          ? "bg-yellow-500/20 border-yellow-400 text-yellow-300 font-semibold"
-                          : "bg-gray-800 border-gray-700 text-gray-200 hover:border-gray-500"
-                      }`}
-                      style={isSelected ? { borderColor: part.color } : {}}
-                    >
-                      <span
-                        className="inline-block w-2 h-2 rounded-sm mr-1.5"
-                        style={{ backgroundColor: part.color }}
-                      />
-                      {part.name}
-                      <span className="float-right text-gray-500">
-                        {count}/{part.maxCount}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            ))}
+            {categories.length === 0 ? (
+              <p className="text-xs text-gray-500 italic py-2">
+                Keine Bauteile gefunden.
+              </p>
+            ) : (
+              categories.map((cat) => (
+                <div key={cat} className="mb-4">
+                  <p className="text-xs font-semibold text-gray-500 uppercase mb-1">
+                    {cat}
+                  </p>
+                  {filteredParts
+                    .filter((p) => p.category === cat)
+                    .map((part) => {
+                      const count = countByLimitKey(part);
+                      const maxReached = count >= part.maxCount;
+                      const isSelected = selectedPartId === part.id;
+                      const isCustom = part.id.startsWith("custom-");
+
+                      return (
+                        <div
+                          key={part.id}
+                          className="group relative flex items-center mb-1"
+                        >
+                          <button
+                            disabled={maxReached}
+                            onClick={() => {
+                              setSelectedPartId(isSelected ? null : part.id);
+                              setSelectedInstanceId(null);
+                            }}
+                            onMouseEnter={() => setTooltip(part.description)}
+                            onMouseLeave={() => setTooltip(null)}
+                            className={`w-full text-left px-2 py-1.5 rounded text-xs border transition-all flex items-center justify-between ${
+                              maxReached
+                                ? "opacity-40 cursor-not-allowed bg-gray-800 border-gray-700 text-gray-500"
+                                : isSelected
+                                ? "bg-yellow-500/20 border-yellow-400 text-yellow-300 font-semibold"
+                                : "bg-gray-800 border-gray-700 text-gray-200 hover:border-gray-500"
+                            }`}
+                            style={isSelected ? { borderColor: part.color } : {}}
+                          >
+                            <span className="flex items-center gap-1.5 truncate mr-1">
+                              <span
+                                className="inline-block w-2 h-2 rounded-sm flex-shrink-0"
+                                style={{ backgroundColor: part.color }}
+                              />
+                              <span className="truncate">{part.name}</span>
+                              {isCustom && (
+                                <span className="text-[10px] bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 px-1 rounded flex-shrink-0">
+                                  User
+                                </span>
+                              )}
+                            </span>
+                            <span className="text-gray-500 flex-shrink-0 ml-1">
+                              {count}/{part.maxCount}
+                            </span>
+                          </button>
+                          {isCustom && (
+                            <button
+                              onClick={(e) => handleDeleteCustomPart(part.id, e)}
+                              title="Eigenes Bauteil löschen"
+                              className="ml-1 text-gray-500 hover:text-red-400 px-1 py-1 rounded text-xs opacity-70 hover:opacity-100 transition-opacity"
+                            >
+                              🗑
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                </div>
+              ))
+            )}
           </div>
 
           {/* Tooltip */}
@@ -352,9 +536,10 @@ export default function CorvetteBuilder() {
           {selectedInstance && (
             <div className="bg-gray-900 border border-yellow-500/40 rounded-lg p-3 flex items-center gap-4 flex-wrap">
               {(() => {
-                const def = PARTS.find(
+                const def = allParts.find(
                   (d) => d.id === selectedInstance.partId
-                )!;
+                );
+                if (!def) return null;
                 return (
                   <>
                     <span
@@ -463,7 +648,7 @@ export default function CorvetteBuilder() {
                   const key = `${col},${row}`;
                   const placed = cellMap[key];
                   const def = placed
-                    ? PARTS.find((d) => d.id === placed.partId)!
+                    ? allParts.find((d) => d.id === placed.partId)
                     : null;
                   const isSelectedInst =
                     placed?.instanceId === selectedInstanceId;
@@ -475,25 +660,28 @@ export default function CorvetteBuilder() {
                   // Preview highlight
                   let previewHighlight = false;
                   if (selectedPartId && !selectedInstanceId && !placed) {
-                    const pDef = PARTS.find((d) => d.id === selectedPartId)!;
-                    const { w, h } = rotatedDimensions(
-                      pDef.w,
-                      pDef.h,
-                      selectedRotation
-                    );
-                    if (
-                      col + w <= GRID_COLS &&
-                      row + h <= GRID_ROWS &&
-                      canPlace(
-                        placedParts,
-                        pDef,
-                        col,
-                        row,
-                        currentLayer,
+                    const pDef = allParts.find((d) => d.id === selectedPartId);
+                    if (pDef) {
+                      const { w, h } = rotatedDimensions(
+                        pDef.w,
+                        pDef.h,
                         selectedRotation
-                      )
-                    ) {
-                      previewHighlight = true;
+                      );
+                      if (
+                        col + w <= GRID_COLS &&
+                        row + h <= GRID_ROWS &&
+                        canPlace(
+                          placedParts,
+                          allParts,
+                          pDef,
+                          col,
+                          row,
+                          currentLayer,
+                          selectedRotation
+                        )
+                      ) {
+                        previewHighlight = true;
+                      }
                     }
                   }
 
@@ -568,7 +756,8 @@ export default function CorvetteBuilder() {
               )}
               {Array.from(new Set(placedParts.map((p) => p.partId))).map(
                 (pid) => {
-                  const def = PARTS.find((d) => d.id === pid)!;
+                  const def = allParts.find((d) => d.id === pid);
+                  if (!def) return null;
                   const count = countByPartId(pid);
                   return (
                     <span
@@ -589,6 +778,152 @@ export default function CorvetteBuilder() {
           </div>
         </div>
       </div>
+
+      {/* Add Custom Part Modal */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-gray-900 border border-yellow-500/50 rounded-lg max-w-md w-full p-5 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-800 pb-3 mb-4">
+              <h2 className="text-yellow-400 font-bold text-lg uppercase tracking-wider">
+                Eigenes Bauteil hinzufügen
+              </h2>
+              <button
+                onClick={() => setIsAddModalOpen(false)}
+                className="text-gray-400 hover:text-gray-200 text-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleAddCustomPart} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-gray-400 mb-1 font-semibold">
+                  Name des Bauteils *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="z.B. Arcadia Blade Extra"
+                  value={newPartName}
+                  onChange={(e) => setNewPartName(e.target.value)}
+                  className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-gray-100 focus:outline-none focus:border-yellow-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-gray-400 mb-1 font-semibold">
+                    Kategorie
+                  </label>
+                  <select
+                    value={newPartCategory}
+                    onChange={(e) =>
+                      setNewPartCategory(e.target.value as PartCategory)
+                    }
+                    className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-gray-100 focus:outline-none focus:border-yellow-500"
+                  >
+                    {PART_CATEGORIES.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-gray-400 mb-1 font-semibold">
+                    Max. Anzahl
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={99}
+                    value={newPartMaxCount}
+                    onChange={(e) => setNewPartMaxCount(Number(e.target.value))}
+                    className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-gray-100 focus:outline-none focus:border-yellow-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-gray-400 mb-1 font-semibold">
+                    Breite (Zellen)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={newPartW}
+                    onChange={(e) => setNewPartW(Number(e.target.value))}
+                    className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-gray-100 focus:outline-none focus:border-yellow-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-gray-400 mb-1 font-semibold">
+                    Höhe (Zellen)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={6}
+                    value={newPartH}
+                    onChange={(e) => setNewPartH(Number(e.target.value))}
+                    className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-gray-100 focus:outline-none focus:border-yellow-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-gray-400 mb-1 font-semibold">
+                    Farbe
+                  </label>
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="color"
+                      value={newPartColor}
+                      onChange={(e) => setNewPartColor(e.target.value)}
+                      className="w-8 h-8 rounded bg-transparent cursor-pointer border border-gray-700 p-0"
+                    />
+                    <span className="text-[10px] text-gray-400 uppercase">
+                      {newPartColor}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-gray-400 mb-1 font-semibold">
+                  Beschreibung
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Kurze Modulbeschreibung..."
+                  value={newPartDescription}
+                  onChange={(e) => setNewPartDescription(e.target.value)}
+                  className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-gray-100 focus:outline-none focus:border-yellow-500 resize-none"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-gray-800">
+                <button
+                  type="button"
+                  onClick={() => setIsAddModalOpen(false)}
+                  className="bg-gray-800 hover:bg-gray-700 text-gray-300 px-4 py-2 rounded transition-colors"
+                >
+                  Abbrechen
+                </button>
+                <button
+                  type="submit"
+                  className="bg-yellow-500 hover:bg-yellow-400 text-gray-950 font-bold px-4 py-2 rounded transition-colors"
+                >
+                  Erstellen
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
