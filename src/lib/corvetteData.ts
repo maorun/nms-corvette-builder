@@ -21,7 +21,35 @@ export type PartCategory =
   | "Hull Attachment"
   | "Window"
   | "Interior"
-  | "Reactor";
+  | "Reactor"
+  | "Custom";
+
+export const PART_CATEGORIES: PartCategory[] = [
+  "Cockpit",
+  "Hab",
+  "Walkway",
+  "Aerofoil",
+  "Wing",
+  "Cowling",
+  "Diffuser",
+  "Dome",
+  "Nacelle",
+  "Casing",
+  "Trim",
+  "Sidepod",
+  "Fin",
+  "Thruster",
+  "Landing Bay",
+  "Landing Gear",
+  "Weapon Mount",
+  "Shielding",
+  "Hull Connector",
+  "Hull Attachment",
+  "Window",
+  "Interior",
+  "Reactor",
+  "Custom",
+];
 
 export interface PartDefinition {
   id: string;
@@ -180,6 +208,16 @@ export const PARTS: PartDefinition[] = [
     h: 1,
     color: "#166534",
     description: "Arcadia S-profile aerofoil wing plate.",
+  },
+  {
+    id: "arcadia-blade",
+    name: "Arcadia Blade",
+    category: "Aerofoil",
+    maxCount: 4,
+    w: 2,
+    h: 1,
+    color: "#15803d",
+    description: "Arcadia blade-style aerofoil wing extension.",
   },
   // Wing
   {
