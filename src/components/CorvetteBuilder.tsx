@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
+import dynamic from "next/dynamic";
 import {
   PARTS as BASE_PARTS,
   PART_CATEGORIES,
@@ -12,6 +13,15 @@ import {
   PartCategory,
   Rotation,
 } from "@/lib/corvetteData";
+
+const ShipPreview3D = dynamic(() => import("./ShipPreview3D"), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-[500px] bg-gray-950 border border-gray-800 rounded-lg flex items-center justify-center text-gray-500 text-xs">
+      3D Vorschau wird geladen...
+    </div>
+  ),
+});
 
 const CUSTOM_PARTS_STORAGE_KEY = "nms_corvette_custom_parts";
 
@@ -112,6 +122,7 @@ export default function CorvetteBuilder() {
     null
   );
   const [tooltip, setTooltip] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"grid" | "3d" | "split">("grid");
 
   // Save custom parts to localStorage when updated
   const saveCustomParts = useCallback((parts: PartDefinition[]) => {
@@ -367,7 +378,7 @@ export default function CorvetteBuilder() {
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 flex flex-col">
       {/* Header */}
-      <header className="bg-gray-900 border-b border-yellow-500/30 px-4 py-3 flex items-center justify-between">
+      <header className="bg-gray-900 border-b border-yellow-500/30 px-4 py-3 flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <span className="text-yellow-400 text-2xl">🚀</span>
           <div>
@@ -379,12 +390,49 @@ export default function CorvetteBuilder() {
             </p>
           </div>
         </div>
-        <button
-          onClick={clearAll}
-          className="text-xs bg-red-900/50 hover:bg-red-700/60 text-red-300 border border-red-700/50 px-3 py-1.5 rounded transition-colors"
-        >
-          Alles löschen
-        </button>
+
+        <div className="flex items-center gap-2">
+          {/* View mode buttons */}
+          <div className="flex bg-gray-950 p-1 rounded-lg border border-gray-800 text-xs">
+            <button
+              onClick={() => setViewMode("grid")}
+              className={`px-3 py-1 rounded font-semibold transition-colors ${
+                viewMode === "grid"
+                  ? "bg-yellow-500 text-gray-950"
+                  : "text-gray-400 hover:text-gray-200"
+              }`}
+            >
+              2D Gitter
+            </button>
+            <button
+              onClick={() => setViewMode("3d")}
+              className={`px-3 py-1 rounded font-semibold transition-colors ${
+                viewMode === "3d"
+                  ? "bg-yellow-500 text-gray-950"
+                  : "text-gray-400 hover:text-gray-200"
+              }`}
+            >
+              3D Vorschau
+            </button>
+            <button
+              onClick={() => setViewMode("split")}
+              className={`px-3 py-1 rounded font-semibold transition-colors ${
+                viewMode === "split"
+                  ? "bg-yellow-500 text-gray-950"
+                  : "text-gray-400 hover:text-gray-200"
+              }`}
+            >
+              Geteilt
+            </button>
+          </div>
+
+          <button
+            onClick={clearAll}
+            className="text-xs bg-red-900/50 hover:bg-red-700/60 text-red-300 border border-red-700/50 px-3 py-1.5 rounded transition-colors"
+          >
+            Alles löschen
+          </button>
+        </div>
       </header>
 
       <div className="flex flex-1 flex-col lg:flex-row gap-4 p-4 overflow-auto">
@@ -593,154 +641,194 @@ export default function CorvetteBuilder() {
             </div>
           )}
 
-          {/* Layer tabs */}
-          <div className="flex gap-1 flex-wrap">
-            {Array.from({ length: GRID_LAYERS }).map((_, i) => {
-              const count = partsOnLayer(i);
-              return (
-                <button
-                  key={i}
-                  onClick={() => {
-                    setCurrentLayer(i);
-                    setSelectedInstanceId(null);
-                  }}
-                  className={`flex-1 min-w-[80px] py-1.5 px-2 rounded-t text-xs font-semibold border-b-2 transition-colors ${
-                    currentLayer === i
-                      ? "bg-gray-800 border-yellow-400 text-yellow-300"
-                      : "bg-gray-900 border-gray-700 text-gray-400 hover:text-gray-200 hover:border-gray-500"
-                  }`}
-                >
-                  E{i + 1}
-                  {count > 0 && (
-                    <span
-                      className={`ml-1 text-[10px] px-1 rounded-full ${
-                        currentLayer === i
-                          ? "bg-yellow-500/30 text-yellow-300"
-                          : "bg-gray-700 text-gray-400"
-                      }`}
-                    >
-                      {count}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Grid */}
-          <div className="bg-gray-900 border border-gray-700 rounded-lg rounded-tl-none p-4 overflow-auto flex-1">
-            <p className="text-xs text-gray-500 mb-3 uppercase tracking-wider">
-              {LAYER_LABELS[currentLayer]} – Bau-Gitter ({GRID_COLS}×
-              {GRID_ROWS})
-            </p>
-            <p className="text-[11px] text-gray-600 mb-3 -mt-2">
-              Strukturelle Korvetten-Baumodule
-            </p>
-            <div
-              className="grid gap-1"
-              style={{
-                gridTemplateColumns: `repeat(${GRID_COLS}, minmax(52px, 1fr))`,
-                gridTemplateRows: `repeat(${GRID_ROWS}, 52px)`,
-              }}
-            >
-              {Array.from({ length: GRID_ROWS }).map((_, row) =>
-                Array.from({ length: GRID_COLS }).map((_, col) => {
-                  const key = `${col},${row}`;
-                  const placed = cellMap[key];
-                  const def = placed
-                    ? allParts.find((d) => d.id === placed.partId)
-                    : null;
-                  const isSelectedInst =
-                    placed?.instanceId === selectedInstanceId;
-                  const isOrigin =
-                    placed?.col === col && placed?.row === row;
-                  const hasOtherLayer =
-                    !placed && otherLayersCells.has(key);
-
-                  // Preview highlight
-                  let previewHighlight = false;
-                  if (selectedPartId && !selectedInstanceId && !placed) {
-                    const pDef = allParts.find((d) => d.id === selectedPartId);
-                    if (pDef) {
-                      const { w, h } = rotatedDimensions(
-                        pDef.w,
-                        pDef.h,
-                        selectedRotation
-                      );
-                      if (
-                        col + w <= GRID_COLS &&
-                        row + h <= GRID_ROWS &&
-                        canPlace(
-                          placedParts,
-                          allParts,
-                          pDef,
-                          col,
-                          row,
-                          currentLayer,
-                          selectedRotation
-                        )
-                      ) {
-                        previewHighlight = true;
-                      }
-                    }
-                  }
-
-                  return (
-                    <div
-                      key={key}
-                      onClick={() => handleCellClick(col, row)}
-                      title={
-                        hasOtherLayer
-                          ? "Auf einer anderen Ebene belegt"
-                          : undefined
-                      }
-                      className={`relative border rounded cursor-pointer transition-all flex items-center justify-center text-xs font-bold select-none
-                        ${
-                          placed
-                            ? isSelectedInst
-                              ? "border-yellow-400 ring-2 ring-yellow-400/60"
-                              : "border-transparent"
-                            : previewHighlight
-                            ? "border-yellow-500/60 bg-yellow-500/10"
-                            : hasOtherLayer
-                            ? "border-gray-600 bg-gray-800/40 border-dashed"
-                            : "border-gray-700 bg-gray-800/60 hover:bg-gray-700/60 hover:border-gray-500"
-                        }
-                      `}
-                      style={
-                        def
-                          ? {
-                              backgroundColor: `${def.color}22`,
-                              borderColor: isSelectedInst
-                                ? "#facc15"
-                                : def.color,
-                            }
-                          : undefined
-                      }
-                    >
-                      {isOrigin && def && (
-                        <div
-                          className="flex flex-col items-center justify-center gap-0.5 pointer-events-none"
-                          style={{ color: def.color }}
-                        >
-                          <span className="text-[10px] leading-tight text-center px-1 line-clamp-2">
-                            {def.name}
+          {/* Main Workspace (Grid / 3D / Split) */}
+          <div
+            className={
+              viewMode === "split"
+                ? "grid grid-cols-1 xl:grid-cols-2 gap-4"
+                : "flex flex-col gap-4"
+            }
+          >
+            {/* 2D Grid Section */}
+            {(viewMode === "grid" || viewMode === "split") && (
+              <div className="flex flex-col gap-2">
+                {/* Layer tabs */}
+                <div className="flex gap-1 flex-wrap">
+                  {Array.from({ length: GRID_LAYERS }).map((_, i) => {
+                    const count = partsOnLayer(i);
+                    return (
+                      <button
+                        key={i}
+                        onClick={() => {
+                          setCurrentLayer(i);
+                          setSelectedInstanceId(null);
+                        }}
+                        className={`flex-1 min-w-[70px] py-1.5 px-2 rounded-t text-xs font-semibold border-b-2 transition-colors ${
+                          currentLayer === i
+                            ? "bg-gray-800 border-yellow-400 text-yellow-300"
+                            : "bg-gray-900 border-gray-700 text-gray-400 hover:text-gray-200 hover:border-gray-500"
+                        }`}
+                      >
+                        E{i + 1}
+                        {count > 0 && (
+                          <span
+                            className={`ml-1 text-[10px] px-1 rounded-full ${
+                              currentLayer === i
+                                ? "bg-yellow-500/30 text-yellow-300"
+                                : "bg-gray-700 text-gray-400"
+                            }`}
+                          >
+                            {count}
                           </span>
-                          {placed!.rotation !== 0 && (
-                            <span className="text-[9px] opacity-70">
-                              {placed!.rotation}°
-                            </span>
-                          )}
-                        </div>
-                      )}
-                      {hasOtherLayer && (
-                        <span className="text-gray-600 text-[10px]">·</span>
-                      )}
-                    </div>
-                  );
-                })
-              )}
-            </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Grid */}
+                <div className="bg-gray-900 border border-gray-700 rounded-lg rounded-tl-none p-4 overflow-auto">
+                  <p className="text-xs text-gray-500 mb-3 uppercase tracking-wider">
+                    {LAYER_LABELS[currentLayer]} – Bau-Gitter ({GRID_COLS}×
+                    {GRID_ROWS})
+                  </p>
+                  <p className="text-[11px] text-gray-600 mb-3 -mt-2">
+                    Strukturelle Korvetten-Baumodule
+                  </p>
+                  <div
+                    className="grid gap-1"
+                    style={{
+                      gridTemplateColumns: `repeat(${GRID_COLS}, minmax(48px, 1fr))`,
+                      gridTemplateRows: `repeat(${GRID_ROWS}, 48px)`,
+                    }}
+                  >
+                    {Array.from({ length: GRID_ROWS }).map((_, row) =>
+                      Array.from({ length: GRID_COLS }).map((_, col) => {
+                        const key = `${col},${row}`;
+                        const placed = cellMap[key];
+                        const def = placed
+                          ? allParts.find((d) => d.id === placed.partId)
+                          : null;
+                        const isSelectedInst =
+                          placed?.instanceId === selectedInstanceId;
+                        const isOrigin =
+                          placed?.col === col && placed?.row === row;
+                        const hasOtherLayer =
+                          !placed && otherLayersCells.has(key);
+
+                        // Preview highlight
+                        let previewHighlight = false;
+                        if (selectedPartId && !selectedInstanceId && !placed) {
+                          const pDef = allParts.find((d) => d.id === selectedPartId);
+                          if (pDef) {
+                            const { w, h } = rotatedDimensions(
+                              pDef.w,
+                              pDef.h,
+                              selectedRotation
+                            );
+                            if (
+                              col + w <= GRID_COLS &&
+                              row + h <= GRID_ROWS &&
+                              canPlace(
+                                placedParts,
+                                allParts,
+                                pDef,
+                                col,
+                                row,
+                                currentLayer,
+                                selectedRotation
+                              )
+                            ) {
+                              previewHighlight = true;
+                            }
+                          }
+                        }
+
+                        return (
+                          <div
+                            key={key}
+                            onClick={() => handleCellClick(col, row)}
+                            title={
+                              hasOtherLayer
+                                ? "Auf einer anderen Ebene belegt"
+                                : undefined
+                            }
+                            className={`relative border rounded cursor-pointer transition-all flex items-center justify-center text-xs font-bold select-none
+                              ${
+                                placed
+                                  ? isSelectedInst
+                                    ? "border-yellow-400 ring-2 ring-yellow-400/60"
+                                    : "border-transparent"
+                                  : previewHighlight
+                                  ? "border-yellow-500/60 bg-yellow-500/10"
+                                  : hasOtherLayer
+                                  ? "border-gray-600 bg-gray-800/40 border-dashed"
+                                  : "border-gray-700 bg-gray-800/60 hover:bg-gray-700/60 hover:border-gray-500"
+                              }
+                            `}
+                            style={
+                              def
+                                ? {
+                                    backgroundColor: `${def.color}22`,
+                                    borderColor: isSelectedInst
+                                      ? "#facc15"
+                                      : def.color,
+                                  }
+                                : undefined
+                            }
+                          >
+                            {isOrigin && def && (
+                              <div
+                                className="flex flex-col items-center justify-center gap-0.5 pointer-events-none"
+                                style={{ color: def.color }}
+                              >
+                                <span className="text-[10px] leading-tight text-center px-1 line-clamp-2">
+                                  {def.name}
+                                </span>
+                                {placed!.rotation !== 0 && (
+                                  <span className="text-[9px] opacity-70">
+                                    {placed!.rotation}°
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            {hasOtherLayer && (
+                              <span className="text-gray-600 text-[10px]">·</span>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 3D Preview Section */}
+            {(viewMode === "3d" || viewMode === "split") && (
+              <div className="flex flex-col gap-2">
+                <div className="bg-gray-900 border border-gray-700 rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs text-yellow-400 uppercase tracking-wider font-bold">
+                      Interaktive 3D Schiffs-Vorschau
+                    </p>
+                    <p className="text-[11px] text-gray-400">
+                      Drehen mit Linksklick • Zoom mit Mausrad
+                    </p>
+                  </div>
+                  <ShipPreview3D
+                    placedParts={placedParts}
+                    allParts={allParts}
+                    currentLayer={currentLayer}
+                    selectedInstanceId={selectedInstanceId}
+                    onSelectInstance={(id) => {
+                      setSelectedInstanceId(id);
+                      if (id) setSelectedPartId(null);
+                    }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Stats */}
