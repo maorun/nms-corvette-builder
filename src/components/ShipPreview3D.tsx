@@ -29,6 +29,139 @@ function rotatedDimensions(
   return { w, h };
 }
 
+function disposeObject(object: THREE.Object3D) {
+  object.traverse((child) => {
+    if (child instanceof THREE.Mesh || child instanceof THREE.LineSegments) {
+      child.geometry.dispose();
+      const materials = Array.isArray(child.material)
+        ? child.material
+        : [child.material];
+      materials.forEach((material) => material.dispose());
+    }
+  });
+}
+
+function createModuleGeometry(
+  category: string,
+  width: number,
+  height: number,
+  depth: number
+): THREE.BufferGeometry {
+  const roundedCategories = new Set(["Dome", "Nacelle", "Diffuser", "Casing"]);
+  if (roundedCategories.has(category)) {
+    const geometry = new THREE.CylinderGeometry(
+      Math.min(width, depth) * 0.46,
+      Math.min(width, depth) * 0.5,
+      height,
+      10
+    );
+    geometry.scale(width / Math.max(width, depth), 1, depth / Math.max(width, depth));
+    return geometry;
+  }
+
+  const shape = new THREE.Shape();
+  const nose = category === "Aerofoil" || category === "Wing" || category === "Trim"
+    ? width * 0.2
+    : 0;
+  shape.moveTo(-width / 2 + nose, -depth / 2);
+  shape.lineTo(width / 2, -depth / 2);
+  shape.lineTo(width / 2 - nose, depth / 2);
+  shape.lineTo(-width / 2, depth / 2);
+  shape.closePath();
+  const geometry = new THREE.ExtrudeGeometry(shape, {
+    depth: height,
+    bevelEnabled: true,
+    bevelSegments: 2,
+    bevelSize: Math.min(0.08, width / 8, depth / 8),
+    bevelThickness: 0.04,
+  });
+  geometry.rotateX(-Math.PI / 2);
+  geometry.center();
+  return geometry;
+}
+
+function addCategoryDetails(
+  group: THREE.Group,
+  category: string,
+  width: number,
+  height: number,
+  depth: number,
+  transparent: boolean,
+  opacity: number,
+  isSelected: boolean
+) {
+  const detailMaterial = new THREE.MeshStandardMaterial({
+    color: 0x1f2937,
+    roughness: 0.28,
+    metalness: 0.85,
+    transparent,
+    opacity,
+  });
+  const glowMaterial = new THREE.MeshStandardMaterial({
+    color: isSelected ? 0xffffff : 0x22d3ee,
+    emissive: isSelected ? 0xffffff : 0x0891b2,
+    emissiveIntensity: isSelected ? 1.2 : 0.9,
+    transparent,
+    opacity,
+  });
+  const radius = Math.min(width, depth) * 0.32;
+
+  if (category === "Cockpit") {
+    const canopy = new THREE.Mesh(
+      new THREE.SphereGeometry(1, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2),
+      new THREE.MeshStandardMaterial({
+        color: 0x164e63,
+        roughness: 0.12,
+        metalness: 0.5,
+        transparent: true,
+        opacity: 0.82,
+        emissive: 0x083344,
+        emissiveIntensity: 0.35,
+      })
+    );
+    canopy.scale.set(width * 0.38, height * 0.75, depth * 0.38);
+    canopy.position.y = height * 0.38;
+    group.add(canopy);
+  } else if (category === "Nacelle") {
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(radius, Math.max(0.035, radius * 0.14), 8, 16),
+      detailMaterial
+    );
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = -height * 0.32;
+    group.add(ring);
+    const exhaust = new THREE.Mesh(
+      new THREE.CylinderGeometry(radius * 0.72, radius * 0.9, 0.04, 12),
+      glowMaterial
+    );
+    exhaust.position.y = -height / 2 - 0.03;
+    group.add(exhaust);
+  } else if (category === "Dome") {
+    const cap = new THREE.Mesh(
+      new THREE.SphereGeometry(1, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2),
+      detailMaterial
+    );
+    cap.scale.set(width * 0.42, height * 0.55, depth * 0.42);
+    cap.position.y = height * 0.42;
+    group.add(cap);
+  } else if (category === "Diffuser") {
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(radius, Math.max(0.04, radius * 0.16), 8, 16),
+      glowMaterial
+    );
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = -height * 0.4;
+    group.add(ring);
+  } else if (category === "Wing" || category === "Aerofoil" || category === "Trim") {
+    const strut = new THREE.Mesh(
+      new THREE.BoxGeometry(width * 0.08, height * 1.4, depth * 0.8),
+      detailMaterial
+    );
+    strut.position.x = width * 0.3;
+    group.add(strut);
+  }
+}
+
 export default function ShipPreview3D({
   placedParts,
   allParts,
@@ -160,14 +293,7 @@ export default function ShipPreview3D({
     while (gridGroup.children.length > 0) {
       const child = gridGroup.children[0];
       gridGroup.remove(child);
-      if (child instanceof THREE.Mesh) {
-        child.geometry.dispose();
-        if (Array.isArray(child.material)) {
-          child.material.forEach((m) => m.dispose());
-        } else {
-          child.material.dispose();
-        }
-      }
+      disposeObject(child);
     }
 
     if (!showGrid) return;
@@ -223,14 +349,7 @@ export default function ShipPreview3D({
     while (partsGroup.children.length > 0) {
       const child = partsGroup.children[0];
       partsGroup.remove(child);
-      if (child instanceof THREE.Mesh) {
-        child.geometry.dispose();
-        if (Array.isArray(child.material)) {
-          child.material.forEach((m) => m.dispose());
-        } else {
-          child.material.dispose();
-        }
-      }
+      disposeObject(child);
     }
 
     const layerHeight = 0.75;
@@ -261,22 +380,36 @@ export default function ShipPreview3D({
       const opacity = isCurrentLayer ? 0.95 : 0.35;
       const transparent = !isCurrentLayer;
 
-      const geometry = new THREE.BoxGeometry(w - 0.05, layerHeight - 0.05, h - 0.05);
+      // Corvette modules use softened edges and layered panels instead of
+      // plain cubes, matching the manufactured sci-fi look of the game.
+      const moduleWidth = Math.max(0.2, w - 0.08);
+      const moduleDepth = Math.max(0.2, h - 0.08);
+      const moduleHeight = Math.max(0.2, layerHeight - 0.08);
+      const geometry = createModuleGeometry(
+        def.category,
+        moduleWidth,
+        moduleHeight,
+        moduleDepth
+      );
 
       const material = new THREE.MeshStandardMaterial({
         color: isSelected ? 0xfacc15 : color,
-        roughness: 0.3,
-        metalness: 0.5,
+        roughness: 0.38,
+        metalness: 0.7,
         transparent,
         opacity,
         emissive: isSelected ? 0x713f12 : color,
-        emissiveIntensity: isSelected ? 0.5 : 0.15,
+        emissiveIntensity: isSelected ? 0.5 : 0.08,
       });
 
+      const partGroup = new THREE.Group();
+      partGroup.position.set(x, y, z);
+      partGroup.userData.isPartModule = true;
+
       const mesh = new THREE.Mesh(geometry, material);
-      mesh.position.set(x, y, z);
       mesh.castShadow = true;
       mesh.receiveShadow = true;
+      partGroup.add(mesh);
 
       // Add edge highlight to block
       const edgesGeo = new THREE.EdgesGeometry(geometry);
@@ -287,10 +420,59 @@ export default function ShipPreview3D({
         opacity: isCurrentLayer ? 0.6 : 0.2,
       });
       const wireframe = new THREE.LineSegments(edgesGeo, edgeMat);
-      mesh.add(wireframe);
+      partGroup.add(wireframe);
 
-      partsGroup.add(mesh);
-      partMapRef.current.set(mesh, placed);
+      // Recessed top panel and illuminated service strip echo the exposed
+      // mechanical panels and cockpit lighting of NMS starship parts.
+      const panelMaterial = new THREE.MeshStandardMaterial({
+        color: 0x111827,
+        roughness: 0.55,
+        metalness: 0.8,
+        transparent,
+        opacity: isCurrentLayer ? 0.95 : 0.35,
+      });
+      const panel = new THREE.Mesh(
+        new THREE.BoxGeometry(
+          Math.max(0.18, moduleWidth * 0.68),
+          0.035,
+          Math.max(0.18, moduleDepth * 0.68)
+        ),
+        panelMaterial
+      );
+      panel.position.y = moduleHeight / 2 + 0.025;
+      partGroup.add(panel);
+
+      const accentMaterial = new THREE.MeshStandardMaterial({
+        color: isSelected ? 0xffffff : 0x38bdf8,
+        emissive: isSelected ? 0xffffff : 0x0284c7,
+        emissiveIntensity: isSelected ? 1 : 0.65,
+        transparent,
+        opacity: isCurrentLayer ? 0.9 : 0.3,
+      });
+      const accent = new THREE.Mesh(
+        new THREE.BoxGeometry(
+          Math.max(0.12, moduleWidth * 0.32),
+          0.045,
+          Math.min(0.06, Math.max(0.025, moduleDepth * 0.12))
+        ),
+        accentMaterial
+      );
+      accent.position.set(-moduleWidth * 0.18, moduleHeight / 2 + 0.05, 0);
+      partGroup.add(accent);
+
+      addCategoryDetails(
+        partGroup,
+        def.category,
+        moduleWidth,
+        moduleHeight,
+        moduleDepth,
+        transparent,
+        isCurrentLayer ? 0.9 : 0.3,
+        isSelected
+      );
+
+      partsGroup.add(partGroup);
+      partMapRef.current.set(partGroup, placed);
     });
   }, [placedParts, allParts, currentLayer, selectedInstanceId, explodeGap, onlyCurrentLayer]);
 
