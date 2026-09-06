@@ -290,14 +290,14 @@ export default function ShipPreview3D({
         emissiveIntensity: isSelected ? 0.5 : 0.08,
       });
 
-      const module = new THREE.Group();
-      module.position.set(x, y, z);
-      module.userData.isPartModule = true;
+      const partGroup = new THREE.Group();
+      partGroup.position.set(x, y, z);
+      partGroup.userData.isPartModule = true;
 
       const mesh = new THREE.Mesh(geometry, material);
       mesh.castShadow = true;
       mesh.receiveShadow = true;
-      module.add(mesh);
+      partGroup.add(mesh);
 
       // Add edge highlight to block
       const edgesGeo = new THREE.EdgesGeometry(geometry);
@@ -308,7 +308,7 @@ export default function ShipPreview3D({
         opacity: isCurrentLayer ? 0.6 : 0.2,
       });
       const wireframe = new THREE.LineSegments(edgesGeo, edgeMat);
-      module.add(wireframe);
+      partGroup.add(wireframe);
 
       // Recessed top panel and a small illuminated service strip provide
       // recognizable construction detail at every scale.
@@ -328,7 +328,7 @@ export default function ShipPreview3D({
         panelMaterial
       );
       panel.position.y = moduleHeight / 2 + 0.025;
-      module.add(panel);
+      partGroup.add(panel);
 
       const accentMaterial = new THREE.MeshStandardMaterial({
         color: isSelected ? 0xffffff : 0x38bdf8,
@@ -346,10 +346,10 @@ export default function ShipPreview3D({
         accentMaterial
       );
       accent.position.set(-moduleWidth * 0.18, moduleHeight / 2 + 0.05, 0);
-      module.add(accent);
+      partGroup.add(accent);
 
-      partsGroup.add(module);
-      partMapRef.current.set(module, placed);
+      partsGroup.add(partGroup);
+      partMapRef.current.set(partGroup, placed);
     });
   }, [placedParts, allParts, currentLayer, selectedInstanceId, explodeGap, onlyCurrentLayer]);
 
