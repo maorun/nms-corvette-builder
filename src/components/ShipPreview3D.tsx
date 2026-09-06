@@ -80,6 +80,88 @@ function createModuleGeometry(
   return geometry;
 }
 
+function addCategoryDetails(
+  group: THREE.Group,
+  category: string,
+  width: number,
+  height: number,
+  depth: number,
+  transparent: boolean,
+  opacity: number,
+  isSelected: boolean
+) {
+  const detailMaterial = new THREE.MeshStandardMaterial({
+    color: 0x1f2937,
+    roughness: 0.28,
+    metalness: 0.85,
+    transparent,
+    opacity,
+  });
+  const glowMaterial = new THREE.MeshStandardMaterial({
+    color: isSelected ? 0xffffff : 0x22d3ee,
+    emissive: isSelected ? 0xffffff : 0x0891b2,
+    emissiveIntensity: isSelected ? 1.2 : 0.9,
+    transparent,
+    opacity,
+  });
+  const radius = Math.min(width, depth) * 0.32;
+
+  if (category === "Cockpit") {
+    const canopy = new THREE.Mesh(
+      new THREE.SphereGeometry(1, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2),
+      new THREE.MeshStandardMaterial({
+        color: 0x164e63,
+        roughness: 0.12,
+        metalness: 0.5,
+        transparent: true,
+        opacity: 0.82,
+        emissive: 0x083344,
+        emissiveIntensity: 0.35,
+      })
+    );
+    canopy.scale.set(width * 0.38, height * 0.75, depth * 0.38);
+    canopy.position.y = height * 0.38;
+    group.add(canopy);
+  } else if (category === "Nacelle") {
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(radius, Math.max(0.035, radius * 0.14), 8, 16),
+      detailMaterial
+    );
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = -height * 0.32;
+    group.add(ring);
+    const exhaust = new THREE.Mesh(
+      new THREE.CylinderGeometry(radius * 0.72, radius * 0.9, 0.04, 12),
+      glowMaterial
+    );
+    exhaust.position.y = -height / 2 - 0.03;
+    group.add(exhaust);
+  } else if (category === "Dome") {
+    const cap = new THREE.Mesh(
+      new THREE.SphereGeometry(1, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2),
+      detailMaterial
+    );
+    cap.scale.set(width * 0.42, height * 0.55, depth * 0.42);
+    cap.position.y = height * 0.42;
+    group.add(cap);
+  } else if (category === "Diffuser") {
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(radius, Math.max(0.04, radius * 0.16), 8, 16),
+      glowMaterial
+    );
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = -height * 0.4;
+    group.add(ring);
+  } else if (category === "Wing" || category === "Aerofoil" || category === "Trim") {
+    const strut = new THREE.Mesh(
+      new THREE.BoxGeometry(width * 0.08, height * 1.4, depth * 0.8),
+      detailMaterial
+    );
+    strut.position.x = width * 0.3;
+    group.add(strut);
+  }
+}
+
 export default function ShipPreview3D({
   placedParts,
   allParts,
@@ -378,25 +460,16 @@ export default function ShipPreview3D({
       accent.position.set(-moduleWidth * 0.18, moduleHeight / 2 + 0.05, 0);
       partGroup.add(accent);
 
-      if (def.category !== "Dome" && def.category !== "Nacelle") {
-        const ribMaterial = new THREE.MeshStandardMaterial({
-          color: 0x374151,
-          roughness: 0.7,
-          metalness: 0.75,
-          transparent,
-          opacity: isCurrentLayer ? 0.9 : 0.3,
-        });
-        const rib = new THREE.Mesh(
-          new THREE.BoxGeometry(
-            Math.min(0.06, moduleWidth * 0.08),
-            moduleHeight * 0.65,
-            Math.max(0.12, moduleDepth * 0.72)
-          ),
-          ribMaterial
-        );
-        rib.position.x = moduleWidth * 0.3;
-        partGroup.add(rib);
-      }
+      addCategoryDetails(
+        partGroup,
+        def.category,
+        moduleWidth,
+        moduleHeight,
+        moduleDepth,
+        transparent,
+        isCurrentLayer ? 0.9 : 0.3,
+        isSelected
+      );
 
       partsGroup.add(partGroup);
       partMapRef.current.set(partGroup, placed);
