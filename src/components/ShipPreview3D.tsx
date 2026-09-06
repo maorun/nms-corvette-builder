@@ -41,6 +41,45 @@ function disposeObject(object: THREE.Object3D) {
   });
 }
 
+function createModuleGeometry(
+  category: string,
+  width: number,
+  height: number,
+  depth: number
+): THREE.BufferGeometry {
+  const roundedCategories = new Set(["Dome", "Nacelle", "Diffuser", "Casing"]);
+  if (roundedCategories.has(category)) {
+    const geometry = new THREE.CylinderGeometry(
+      Math.min(width, depth) * 0.46,
+      Math.min(width, depth) * 0.5,
+      height,
+      10
+    );
+    geometry.scale(width / Math.max(width, depth), 1, depth / Math.max(width, depth));
+    return geometry;
+  }
+
+  const shape = new THREE.Shape();
+  const nose = category === "Aerofoil" || category === "Wing" || category === "Trim"
+    ? width * 0.2
+    : 0;
+  shape.moveTo(-width / 2 + nose, -depth / 2);
+  shape.lineTo(width / 2, -depth / 2);
+  shape.lineTo(width / 2 - nose, depth / 2);
+  shape.lineTo(-width / 2, depth / 2);
+  shape.closePath();
+  const geometry = new THREE.ExtrudeGeometry(shape, {
+    depth: height,
+    bevelEnabled: true,
+    bevelSegments: 2,
+    bevelSize: Math.min(0.08, width / 8, depth / 8),
+    bevelThickness: 0.04,
+  });
+  geometry.rotateX(-Math.PI / 2);
+  geometry.center();
+  return geometry;
+}
+
 export default function ShipPreview3D({
   placedParts,
   allParts,
@@ -264,21 +303,12 @@ export default function ShipPreview3D({
       const moduleWidth = Math.max(0.2, w - 0.08);
       const moduleDepth = Math.max(0.2, h - 0.08);
       const moduleHeight = Math.max(0.2, layerHeight - 0.08);
-      const shape = new THREE.Shape();
-      shape.moveTo(-moduleWidth / 2, -moduleDepth / 2);
-      shape.lineTo(moduleWidth / 2, -moduleDepth / 2);
-      shape.lineTo(moduleWidth / 2, moduleDepth / 2);
-      shape.lineTo(-moduleWidth / 2, moduleDepth / 2);
-      shape.closePath();
-      const geometry = new THREE.ExtrudeGeometry(shape, {
-        depth: moduleHeight,
-        bevelEnabled: true,
-        bevelSegments: 2,
-        bevelSize: Math.min(0.08, moduleWidth / 8, moduleDepth / 8),
-        bevelThickness: 0.04,
-      });
-      geometry.rotateX(-Math.PI / 2);
-      geometry.center();
+      const geometry = createModuleGeometry(
+        def.category,
+        moduleWidth,
+        moduleHeight,
+        moduleDepth
+      );
 
       const material = new THREE.MeshStandardMaterial({
         color: isSelected ? 0xfacc15 : color,
@@ -310,8 +340,8 @@ export default function ShipPreview3D({
       const wireframe = new THREE.LineSegments(edgesGeo, edgeMat);
       partGroup.add(wireframe);
 
-      // Recessed top panel and a small illuminated service strip provide
-      // recognizable construction detail at every scale.
+      // Recessed top panel and illuminated service strip echo the exposed
+      // mechanical panels and cockpit lighting of NMS starship parts.
       const panelMaterial = new THREE.MeshStandardMaterial({
         color: 0x111827,
         roughness: 0.55,
@@ -347,6 +377,26 @@ export default function ShipPreview3D({
       );
       accent.position.set(-moduleWidth * 0.18, moduleHeight / 2 + 0.05, 0);
       partGroup.add(accent);
+
+      if (def.category !== "Dome" && def.category !== "Nacelle") {
+        const ribMaterial = new THREE.MeshStandardMaterial({
+          color: 0x374151,
+          roughness: 0.7,
+          metalness: 0.75,
+          transparent,
+          opacity: isCurrentLayer ? 0.9 : 0.3,
+        });
+        const rib = new THREE.Mesh(
+          new THREE.BoxGeometry(
+            Math.min(0.06, moduleWidth * 0.08),
+            moduleHeight * 0.65,
+            Math.max(0.12, moduleDepth * 0.72)
+          ),
+          ribMaterial
+        );
+        rib.position.x = moduleWidth * 0.3;
+        partGroup.add(rib);
+      }
 
       partsGroup.add(partGroup);
       partMapRef.current.set(partGroup, placed);
