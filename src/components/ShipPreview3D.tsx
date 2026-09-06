@@ -29,6 +29,18 @@ function rotatedDimensions(
   return { w, h };
 }
 
+function disposeObject(object: THREE.Object3D) {
+  object.traverse((child) => {
+    if (child instanceof THREE.Mesh || child instanceof THREE.LineSegments) {
+      child.geometry.dispose();
+      const materials = Array.isArray(child.material)
+        ? child.material
+        : [child.material];
+      materials.forEach((material) => material.dispose());
+    }
+  });
+}
+
 export default function ShipPreview3D({
   placedParts,
   allParts,
@@ -160,14 +172,7 @@ export default function ShipPreview3D({
     while (gridGroup.children.length > 0) {
       const child = gridGroup.children[0];
       gridGroup.remove(child);
-      if (child instanceof THREE.Mesh) {
-        child.geometry.dispose();
-        if (Array.isArray(child.material)) {
-          child.material.forEach((m) => m.dispose());
-        } else {
-          child.material.dispose();
-        }
-      }
+      disposeObject(child);
     }
 
     if (!showGrid) return;
@@ -223,14 +228,7 @@ export default function ShipPreview3D({
     while (partsGroup.children.length > 0) {
       const child = partsGroup.children[0];
       partsGroup.remove(child);
-      if (child instanceof THREE.Mesh) {
-        child.geometry.dispose();
-        if (Array.isArray(child.material)) {
-          child.material.forEach((m) => m.dispose());
-        } else {
-          child.material.dispose();
-        }
-      }
+      disposeObject(child);
     }
 
     const layerHeight = 0.75;
@@ -261,22 +259,45 @@ export default function ShipPreview3D({
       const opacity = isCurrentLayer ? 0.95 : 0.35;
       const transparent = !isCurrentLayer;
 
-      const geometry = new THREE.BoxGeometry(w - 0.05, layerHeight - 0.05, h - 0.05);
+      // Corvette modules use softened edges and layered panels instead of
+      // plain cubes, matching the manufactured sci-fi look of the game.
+      const moduleWidth = Math.max(0.2, w - 0.08);
+      const moduleDepth = Math.max(0.2, h - 0.08);
+      const moduleHeight = Math.max(0.2, layerHeight - 0.08);
+      const shape = new THREE.Shape();
+      shape.moveTo(-moduleWidth / 2, -moduleDepth / 2);
+      shape.lineTo(moduleWidth / 2, -moduleDepth / 2);
+      shape.lineTo(moduleWidth / 2, moduleDepth / 2);
+      shape.lineTo(-moduleWidth / 2, moduleDepth / 2);
+      shape.closePath();
+      const geometry = new THREE.ExtrudeGeometry(shape, {
+        depth: moduleHeight,
+        bevelEnabled: true,
+        bevelSegments: 2,
+        bevelSize: Math.min(0.08, moduleWidth / 8, moduleDepth / 8),
+        bevelThickness: 0.04,
+      });
+      geometry.rotateX(-Math.PI / 2);
+      geometry.center();
 
       const material = new THREE.MeshStandardMaterial({
         color: isSelected ? 0xfacc15 : color,
-        roughness: 0.3,
-        metalness: 0.5,
+        roughness: 0.38,
+        metalness: 0.7,
         transparent,
         opacity,
         emissive: isSelected ? 0x713f12 : color,
-        emissiveIntensity: isSelected ? 0.5 : 0.15,
+        emissiveIntensity: isSelected ? 0.5 : 0.08,
       });
 
+      const module = new THREE.Group();
+      module.position.set(x, y, z);
+      module.userData.isPartModule = true;
+
       const mesh = new THREE.Mesh(geometry, material);
-      mesh.position.set(x, y, z);
       mesh.castShadow = true;
       mesh.receiveShadow = true;
+      module.add(mesh);
 
       // Add edge highlight to block
       const edgesGeo = new THREE.EdgesGeometry(geometry);
@@ -287,10 +308,48 @@ export default function ShipPreview3D({
         opacity: isCurrentLayer ? 0.6 : 0.2,
       });
       const wireframe = new THREE.LineSegments(edgesGeo, edgeMat);
-      mesh.add(wireframe);
+      module.add(wireframe);
 
-      partsGroup.add(mesh);
-      partMapRef.current.set(mesh, placed);
+      // Recessed top panel and a small illuminated service strip provide
+      // recognizable construction detail at every scale.
+      const panelMaterial = new THREE.MeshStandardMaterial({
+        color: 0x111827,
+        roughness: 0.55,
+        metalness: 0.8,
+        transparent,
+        opacity: isCurrentLayer ? 0.95 : 0.35,
+      });
+      const panel = new THREE.Mesh(
+        new THREE.BoxGeometry(
+          Math.max(0.18, moduleWidth * 0.68),
+          0.035,
+          Math.max(0.18, moduleDepth * 0.68)
+        ),
+        panelMaterial
+      );
+      panel.position.y = moduleHeight / 2 + 0.025;
+      module.add(panel);
+
+      const accentMaterial = new THREE.MeshStandardMaterial({
+        color: isSelected ? 0xffffff : 0x38bdf8,
+        emissive: isSelected ? 0xffffff : 0x0284c7,
+        emissiveIntensity: isSelected ? 1 : 0.65,
+        transparent,
+        opacity: isCurrentLayer ? 0.9 : 0.3,
+      });
+      const accent = new THREE.Mesh(
+        new THREE.BoxGeometry(
+          Math.max(0.12, moduleWidth * 0.32),
+          0.045,
+          Math.min(0.06, Math.max(0.025, moduleDepth * 0.12))
+        ),
+        accentMaterial
+      );
+      accent.position.set(-moduleWidth * 0.18, moduleHeight / 2 + 0.05, 0);
+      module.add(accent);
+
+      partsGroup.add(module);
+      partMapRef.current.set(module, placed);
     });
   }, [placedParts, allParts, currentLayer, selectedInstanceId, explodeGap, onlyCurrentLayer]);
 
