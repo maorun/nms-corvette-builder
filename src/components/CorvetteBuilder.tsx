@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useMemo } from "react";
 import dynamic from "next/dynamic";
+import { validateConstruction } from "@/lib/constructionValidation";
 import {
   PARTS as BASE_PARTS,
   PART_CATEGORIES,
@@ -403,6 +404,10 @@ export default function CorvetteBuilder() {
   const selectedInteriorDefinition = selectedInteriorPartId
     ? allParts.find((part) => part.id === selectedInteriorPartId)
     : null;
+  const validationIssues = useMemo(
+    () => validateConstruction(placedParts, interiorParts, allParts),
+    [placedParts, interiorParts, allParts]
+  );
 
   // Interior parts are only available within the selected Hab, never on the outer grid.
   const filteredParts = useMemo(() => {
@@ -665,6 +670,21 @@ export default function CorvetteBuilder() {
               </div>
             </div>
           )}
+          <section className={`rounded-lg border p-3 ${validationIssues.some((issue) => issue.severity === "error") ? "border-red-500/50 bg-red-950/20" : validationIssues.length > 0 ? "border-amber-500/50 bg-amber-950/20" : "border-emerald-500/40 bg-emerald-950/20"}`} aria-live="polite">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-sm font-bold text-gray-100">Konstruktionsprüfung</h2>
+              <span className={`text-xs font-semibold ${validationIssues.some((issue) => issue.severity === "error") ? "text-red-300" : validationIssues.length > 0 ? "text-amber-300" : "text-emerald-300"}`}>
+                {validationIssues.length === 0 ? "Entwurf plausibel" : `${validationIssues.length} Hinweis${validationIssues.length === 1 ? "" : "e"}`}
+              </span>
+            </div>
+            {validationIssues.length === 0 ? (
+              <p className="mt-1 text-xs text-emerald-200">Cockpit, Verbindung zum Rumpf und Innenraumzuordnungen sind geprüft.</p>
+            ) : (
+              <ul className="mt-2 space-y-1.5">
+                {validationIssues.map((issue) => <li key={issue.id} className="text-xs text-gray-300"><span className={`font-semibold ${issue.severity === "error" ? "text-red-300" : "text-amber-300"}`}>{issue.severity === "error" ? "Fehler" : "Hinweis"}: {issue.title}.</span> {issue.message}</li>)}
+              </ul>
+            )}
+          </section>
           {/* Context panel for selected instance */}
           {selectedInstance && (
             <div className="bg-gray-900 border border-yellow-500/40 rounded-lg p-3 flex items-center gap-4 flex-wrap">
