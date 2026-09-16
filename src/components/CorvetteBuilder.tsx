@@ -12,6 +12,10 @@ import {
   PartDefinition,
   PartCategory,
   Rotation,
+  HAB_INTERIOR_SLOTS,
+  INTERIOR_ALLOWED_SURFACES,
+  InteriorSlotId,
+  PlacedInteriorPart,
 } from "@/lib/corvetteData";
 
 const ShipPreview3D = dynamic(() => import("./ShipPreview3D"), {
@@ -115,6 +119,9 @@ export default function CorvetteBuilder() {
   const [newPartDescription, setNewPartDescription] = useState("");
 
   const [placedParts, setPlacedParts] = useState<PlacedPart[]>([]);
+  const [interiorParts, setInteriorParts] = useState<PlacedInteriorPart[]>([]);
+  const [activeInteriorHabId, setActiveInteriorHabId] = useState<string | null>(null);
+  const [selectedInteriorPartId, setSelectedInteriorPartId] = useState<string | null>(null);
   const [currentLayer, setCurrentLayer] = useState(0);
   const [selectedPartId, setSelectedPartId] = useState<string | null>(null);
   const [selectedRotation, setSelectedRotation] = useState<Rotation>(0);
@@ -181,25 +188,57 @@ export default function CorvetteBuilder() {
     const updatedCustomParts = customParts.filter((p) => p.id !== partId);
     saveCustomParts(updatedCustomParts);
     setPlacedParts((prev) => prev.filter((p) => p.partId !== partId));
+    setInteriorParts((prev) => prev.filter((p) => p.partId !== partId));
     if (selectedPartId === partId) setSelectedPartId(null);
+    if (selectedInteriorPartId === partId) setSelectedInteriorPartId(null);
   };
 
   const countByPartId = useCallback(
     (partId: string) =>
-      placedParts.filter((p) => p.partId === partId).length,
-    [placedParts]
+      placedParts.filter((p) => p.partId === partId).length +
+      interiorParts.filter((p) => p.partId === partId).length,
+    [placedParts, interiorParts]
   );
 
   const countByLimitKey = useCallback(
     (partDef: PartDefinition) => {
       if (!partDef.countGroup) return countByPartId(partDef.id);
       const partSet = groupedPartIds[partDef.countGroup] ?? EMPTY_PART_SET;
-      return placedParts.filter((p) => {
-        return partSet.has(p.partId);
-      }).length;
+      return placedParts.filter((p) => partSet.has(p.partId)).length +
+        interiorParts.filter((p) => partSet.has(p.partId)).length;
     },
-    [placedParts, countByPartId, groupedPartIds]
+    [placedParts, interiorParts, countByPartId, groupedPartIds]
   );
+
+  const openInteriorEditor = useCallback((habInstanceId: string) => {
+    setActiveInteriorHabId(habInstanceId);
+    setSelectedInteriorPartId(null);
+    setSelectedPartId(null);
+    setSelectedInstanceId(null);
+  }, []);
+
+  const placeInteriorPart = useCallback((slotId: InteriorSlotId) => {
+    if (!activeInteriorHabId || !selectedInteriorPartId) return;
+    const definition = allParts.find((part) => part.id === selectedInteriorPartId);
+    const slot = HAB_INTERIOR_SLOTS.find((candidate) => candidate.id === slotId);
+    if (!definition || definition.category !== "Interior" || !slot) return;
+    const allowedSurfaces = definition.allowedInteriorSurfaces ?? INTERIOR_ALLOWED_SURFACES[definition.id];
+    if (allowedSurfaces && !allowedSurfaces.includes(slot.surface)) return;
+    if (countByLimitKey(definition) >= definition.maxCount) return;
+    if (interiorParts.some((part) => part.parentInstanceId === activeInteriorHabId && part.slotId === slotId)) return;
+
+    setInteriorParts((parts) => [...parts, {
+      instanceId: newInstanceId(),
+      partId: selectedInteriorPartId,
+      parentInstanceId: activeInteriorHabId,
+      slotId,
+    }]);
+    setSelectedInteriorPartId(null);
+  }, [activeInteriorHabId, allParts, countByLimitKey, interiorParts, selectedInteriorPartId]);
+
+  const removeInteriorPart = useCallback((instanceId: string) => {
+    setInteriorParts((parts) => parts.filter((part) => part.instanceId !== instanceId));
+  }, []);
 
   const handleCellClick = useCallback(
     (col: number, row: number) => {
@@ -318,14 +357,17 @@ export default function CorvetteBuilder() {
   );
 
   const removePart = useCallback((instanceId: string) => {
-    setPlacedParts((prev) =>
-      prev.filter((p) => p.instanceId !== instanceId)
-    );
+    setPlacedParts((prev) => prev.filter((p) => p.instanceId !== instanceId));
+    setInteriorParts((parts) => parts.filter((part) => part.parentInstanceId !== instanceId));
+    if (activeInteriorHabId === instanceId) setActiveInteriorHabId(null);
     setSelectedInstanceId(null);
-  }, []);
+  }, [activeInteriorHabId]);
 
   const clearAll = useCallback(() => {
     setPlacedParts([]);
+    setInteriorParts([]);
+    setActiveInteriorHabId(null);
+    setSelectedInteriorPartId(null);
     setSelectedPartId(null);
     setSelectedInstanceId(null);
   }, []);
@@ -352,17 +394,30 @@ export default function CorvetteBuilder() {
     }
   }
 
-  // Filter parts based on search query
+  const activeInteriorHab = activeInteriorHabId
+    ? placedParts.find((part) => part.instanceId === activeInteriorHabId) ?? null
+    : null;
+  const activeInteriorParts = activeInteriorHabId
+    ? interiorParts.filter((part) => part.parentInstanceId === activeInteriorHabId)
+    : [];
+  const selectedInteriorDefinition = selectedInteriorPartId
+    ? allParts.find((part) => part.id === selectedInteriorPartId)
+    : null;
+
+  // Interior parts are only available within the selected Hab, never on the outer grid.
   const filteredParts = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return allParts;
-    return allParts.filter(
+    const availableParts = activeInteriorHabId
+      ? allParts.filter((part) => part.category === "Interior")
+      : allParts.filter((part) => part.category !== "Interior");
+    if (!q) return availableParts;
+    return availableParts.filter(
       (p) =>
         p.name.toLowerCase().includes(q) ||
         p.category.toLowerCase().includes(q) ||
         p.description.toLowerCase().includes(q)
     );
-  }, [allParts, searchQuery]);
+  }, [activeInteriorHabId, allParts, searchQuery]);
 
   const categories = useMemo(() => {
     return Array.from(new Set(filteredParts.map((p) => p.category)));
@@ -512,7 +567,9 @@ export default function CorvetteBuilder() {
                     .map((part) => {
                       const count = countByLimitKey(part);
                       const maxReached = count >= part.maxCount;
-                      const isSelected = selectedPartId === part.id;
+                      const isSelected = activeInteriorHabId
+                        ? selectedInteriorPartId === part.id
+                        : selectedPartId === part.id;
                       const isCustom = part.id.startsWith("custom-");
 
                       return (
@@ -523,8 +580,12 @@ export default function CorvetteBuilder() {
                           <button
                             disabled={maxReached}
                             onClick={() => {
-                              setSelectedPartId(isSelected ? null : part.id);
-                              setSelectedInstanceId(null);
+                              if (activeInteriorHabId) {
+                                setSelectedInteriorPartId(isSelected ? null : part.id);
+                              } else {
+                                setSelectedPartId(isSelected ? null : part.id);
+                                setSelectedInstanceId(null);
+                              }
                             }}
                             onMouseEnter={() => setTooltip(part.description)}
                             onMouseLeave={() => setTooltip(null)}
@@ -580,6 +641,30 @@ export default function CorvetteBuilder() {
 
         {/* Grid + Context Panel */}
         <div className="flex-1 flex flex-col gap-4">
+          {activeInteriorHab && (
+            <div className="bg-gray-900 border border-violet-500/50 rounded-lg p-4">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <div>
+                  <p className="text-sm font-bold text-violet-300">Innenraum: {allParts.find((part) => part.id === activeInteriorHab.partId)?.name}</p>
+                  <p className="text-xs text-gray-400">Wähle ein Interior-Teil links und dann einen freien Slot. Innenraumteile belegen kein Außenraster.</p>
+                </div>
+                <button onClick={() => { setActiveInteriorHabId(null); setSelectedInteriorPartId(null); }} className="text-xs bg-gray-700 hover:bg-gray-600 text-gray-200 px-3 py-1.5 rounded">Zurück zum Außenbau</button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
+                {HAB_INTERIOR_SLOTS.map((slot) => {
+                  const placed = activeInteriorParts.find((part) => part.slotId === slot.id);
+                  const definition = placed ? allParts.find((part) => part.id === placed.partId) : null;
+                  const allowedSurfaces = selectedInteriorDefinition?.allowedInteriorSurfaces ?? (selectedInteriorDefinition ? INTERIOR_ALLOWED_SURFACES[selectedInteriorDefinition.id] : undefined);
+                  const isCompatible = !allowedSurfaces || allowedSurfaces.includes(slot.surface);
+                  return <button key={slot.id} disabled={!placed && !isCompatible} onClick={() => placed ? removeInteriorPart(placed.instanceId) : placeInteriorPart(slot.id)} className={`min-h-24 p-3 rounded border text-left transition-colors ${placed ? "border-violet-400 bg-violet-500/15" : !isCompatible ? "border-gray-800 bg-gray-900/40 opacity-45 cursor-not-allowed" : selectedInteriorPartId ? "border-violet-500/60 bg-violet-500/10 hover:bg-violet-500/20" : "border-gray-700 bg-gray-800/60"}`}>
+                    <span className="block text-[10px] uppercase text-gray-500">{slot.surface}</span>
+                    <span className="block text-xs font-semibold mt-1" style={definition ? { color: definition.color } : undefined}>{definition ? definition.name : slot.name}</span>
+                    <span className="block text-[10px] text-gray-500 mt-1">{placed ? "Klick zum Entfernen" : !isCompatible ? "Nicht kompatibel" : selectedInteriorPartId ? "Klick zum Platzieren" : "Freier Slot"}</span>
+                  </button>;
+                })}
+              </div>
+            </div>
+          )}
           {/* Context panel for selected instance */}
           {selectedInstance && (
             <div className="bg-gray-900 border border-yellow-500/40 rounded-lg p-3 flex items-center gap-4 flex-wrap">
@@ -607,6 +692,14 @@ export default function CorvetteBuilder() {
                       Ebene: {LAYER_LABELS[selectedInstance.layer]}
                     </span>
                     <div className="ml-auto flex gap-2">
+                      {def.category === "Hab" && (
+                        <button
+                          onClick={() => openInteriorEditor(selectedInstance.instanceId)}
+                          className="text-xs bg-violet-900/50 hover:bg-violet-700/60 text-violet-200 border border-violet-600/50 px-3 py-1 rounded transition-colors"
+                        >
+                          Innenraum bearbeiten
+                        </button>
+                      )}
                       <button
                         onClick={() => rotatePart(selectedInstance.instanceId)}
                         className="text-xs bg-blue-900/50 hover:bg-blue-700/60 text-blue-300 border border-blue-700/50 px-3 py-1 rounded transition-colors"
@@ -818,6 +911,8 @@ export default function CorvetteBuilder() {
                   </div>
                   <ShipPreview3D
                     placedParts={placedParts}
+                    interiorParts={interiorParts}
+                    activeInteriorHabId={activeInteriorHabId}
                     allParts={allParts}
                     currentLayer={currentLayer}
                     selectedInstanceId={selectedInstanceId}
