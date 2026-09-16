@@ -40,6 +40,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# local community-model source archives (STL ZIP downloads)
+/zips/
+
 # next-pwa generated service workers
 /public/sw.js
 /public/workbox-*.js

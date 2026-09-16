@@ -3,6 +3,8 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import {
   PlacedPart,
   PartDefinition,
@@ -18,6 +20,147 @@ interface ShipPreview3DProps {
   currentLayer?: number;
   selectedInstanceId?: string | null;
   onSelectInstance?: (instanceId: string | null) => void;
+}
+
+const COMMUNITY_MODELS: Record<string, string> = {
+  "titan-class-cockpit": "/models/community-corvette/COCKPIT_-_Titan-Class_Cockpit.glb",
+  "ambassador-class-cockpit": "/models/community-corvette/COCKPIT_-_Ambassador-Class_Cockpit.glb",
+  "thunderbird-class-cockpit": "/models/community-corvette/COCKPIT_-_Thunderbird-Class_Cockpit.glb",
+  "titan-class-hab": "/models/community-corvette/HABITATION_-__Hab.glb",
+  "ambassador-class-hab": "/models/community-corvette/HABITATION_-__Hab.glb",
+  "thunderbird-class-hab": "/models/community-corvette/HABITATION_-__Hab.glb",
+  "titan-class-walkway": "/models/community-corvette/HABITATION_-__Walkway.glb",
+  "ambassador-class-walkway": "/models/community-corvette/HABITATION_-__Walkway.glb",
+  "thunderbird-class-walkway": "/models/community-corvette/HABITATION_-__Walkway.glb",
+  "panelled-window": "/models/community-corvette/ATTACHMENT_-_Panelled_Window_Front-Rear.glb",
+  "rounded-window": "/models/community-corvette/ATTACHMENT_-_Rounded_Window_Front-Rear.glb",
+  "seamless-window": "/models/community-corvette/ATTACHMENT_-_Seamless_Window_Front-Rear.glb",
+};
+
+const communityAsset = (filename: string) => `/models/community-corvette/${filename}`;
+
+Object.assign(COMMUNITY_MODELS, {
+  "supercruise-aerofoil": communityAsset("plating-supercruise-aerofoil-left.glb"),
+  "arcadia-aerofoil": communityAsset("wing-arcadia-aerofoil-left.glb"),
+  "argonaut-aerofoil": communityAsset("plating-argonaut-aerofoil-left.glb"),
+  "arcadia-s-foil": communityAsset("wing-arcadia-s-foil-left.glb"),
+  "arcadia-blade": communityAsset("plating-arcadia-blade-left.glb"),
+  "titan-wing-module": communityAsset("wing-titan-wing-module-left.glb"),
+  "ambassador-wing-module": communityAsset("wing-ambassador-wing-module-left.glb"),
+  "osprey-wing-module": communityAsset("wing-osprey-wing-module-left.glb"),
+  "rockhopper-wing-module": communityAsset("wing-rockhopper-wing-module-left.glb"),
+  "rockhopper-propeller-module": communityAsset("wing-rockhopper-propeller-module-left.glb"),
+  "rockhopper-fin-module": communityAsset("wing-rockhopper-fin-module-left.glb"),
+  "supercruise-cowling": communityAsset("plating-super-cruise-cowling.glb"),
+  "speedbird-cowling": communityAsset("plating-speedbird-cowling.glb"),
+  "vesper-cowling": communityAsset("plating-vesper-cowling.glb"),
+  "firebox-cowling": communityAsset("plating-firebox-cowling.glb"),
+  "speedbird-fairing": communityAsset("plating-speedbird-fairing.glb"),
+  "firebox-fairing": communityAsset("plating-firebox-fairing.glb"),
+  "speedbird-diffuser": communityAsset("plating-speedbird-diffuser.glb"),
+  "vesper-diffuser": communityAsset("plating-vesper-diffuser-left.glb"),
+  "vesper-diffuser-rim": communityAsset("plating-vesper-diffuser-left.glb"),
+  "speedbird-dome-rim": communityAsset("plating-speedbird-dome-section-left.glb"),
+  "speedbird-dome-section": communityAsset("plating-speedbird-dome-section-left.glb"),
+  "speedbird-nacelle": communityAsset("plating-speedbird-nacelle-left.glb"),
+  "speedbird-nacelle-rim": communityAsset("plating-speedbird-nacelle-left.glb"),
+  "domed-casing": communityAsset("plating-domed-casing.glb"),
+  "domed-casing-cap": communityAsset("plating-domed-casing.glb"),
+  "radiator-casing": communityAsset("plating-radiator-casing.glb"),
+  "swept-casing": communityAsset("plating-swept-casing.glb"),
+  "swept-casing-cap": communityAsset("plating-swept-casing.glb"),
+  "streamlined-trim": communityAsset("plating-streamed-lined-trim.glb"),
+  "streamlined-trim-cap": communityAsset("plating-streamed-lined-cap.glb"),
+  "engine-cover": communityAsset("plating-engine-cover-left.glb"),
+  "engine-cover-rim": communityAsset("plating-engine-cover-left.glb"),
+  "albatross-sidepod": communityAsset("plating-albatross-sidepod.glb"),
+  "firebox-sidepod-cap": communityAsset("plating-firebox-fairing.glb"),
+  "titan-class-landing-bay": communityAsset("access-and-docking-titan-class-landing-bay.glb"),
+  "ambassador-class-landing-bay": communityAsset("access-and-docking-ambassador-class-landing-bay.glb"),
+  "thunderbird-class-landing-bay": communityAsset("access-and-docking-thunderbird-class-landing-bay.glb"),
+  "standard-landing-gear": communityAsset("access-and-docking-landing-gear.glb"),
+  "hydraulic-legs": communityAsset("plating-argonaut-hydraulics.glb"),
+  "mag-field-landing-thrusters": communityAsset("access-and-docking-mag-field-landing-thrusters.glb"),
+  "cyclotron-defence-cannon": communityAsset("gun-cyclotron-defense-cannon.glb"),
+  "phase-beam-array": communityAsset("gun-phase-beam-array.glb"),
+  "photon-cannon-array": communityAsset("gun-photon-cannon-array.glb"),
+  "torpedo-launcher": communityAsset("gun-torpedo-launcher.glb"),
+  "defence-field": communityAsset("shield-deflector-shield.glb"),
+  "deflector-shield": communityAsset("shield-deflector-shield.glb"),
+  "high-energy-shield": communityAsset("shield-high-energy-shield.glb"),
+  "ion-barrier": communityAsset("shield-ion-barrier.glb"),
+  "ballast-tank": communityAsset("connector-ballast-tank.glb"),
+  "bolted-joint": communityAsset("connector-bolted-joint.glb"),
+  "coolant-distributor": communityAsset("connector-coolant-distributor.glb"),
+  "ducting-joint": communityAsset("connector-ducting-joint.glb"),
+  "fuel-cell": communityAsset("connector-fuel-cell.glb"),
+  "girder-array": communityAsset("connector-girder-array-left.glb"),
+  "cargo-capsule": communityAsset("attachments-cargo-capsule.glb"),
+  "cargo-pod": communityAsset("attachments-cargo-pod.glb"),
+  "cargo-sphere": communityAsset("attachments-cargo-sphere.glb"),
+  "cargo-box": communityAsset("attachments-cargo-cap.glb"),
+  "hull-vents": communityAsset("attachments-radiator-vents.glb"),
+  "air-purifier": communityAsset("attachments-air-purifier.glb"),
+  "satellite-receiver": communityAsset("attachments-satellite-reciever.glb"),
+  "mission-radar": communityAsset("attachments-radar-dome.glb"),
+  "radar-dome": communityAsset("attachments-radar-dome.glb"),
+  "zenith-class-reactor": communityAsset("generator-zenith-class-reactor.glb"),
+  "medusa-class-reactor": communityAsset("generator-medusa-class-reactor.glb"),
+  "azimuth-class-reactor": communityAsset("generator-azimuth-class-reactor.glb"),
+  "ceto-class-reactor": communityAsset("generator-ceto-class-reactor.glb"),
+  "titan-heavy-booster": communityAsset("thruster-titan-heavy-booster-left.glb"),
+  // Das Community-Paket enthält kein Titan-Sublight-Modell; Arcadia ist die nächstpassende Sublight-Variante.
+  "titan-sublight-thruster": communityAsset("thruster-arcadia-sublight-thruster-left.glb"),
+  // Das Community-Paket enthält kein Ambassador-Modell; Arcadia ist die nächstpassende Heavy-Variante.
+  "ambassador-heavy-booster": communityAsset("thruster-arcadia-heavy-thruster-left.glb"),
+  "thunderbird-heavy-booster": communityAsset("thruster-thunderbird-heavy-booster-left.glb"),
+});
+
+const communityModelCache = new Map<string, Promise<THREE.Group>>();
+const communityDracoLoader = new DRACOLoader().setDecoderPath("/models/community-corvette/draco/");
+const communityGltfLoader = new GLTFLoader().setDRACOLoader(communityDracoLoader);
+
+function loadCommunityModel(url: string): Promise<THREE.Group> {
+  const cached = communityModelCache.get(url);
+  if (cached) return cached;
+
+  const model = communityGltfLoader.loadAsync(url).then((gltf) => gltf.scene);
+  communityModelCache.set(url, model);
+  return model;
+}
+
+function cloneAndFitCommunityModel(
+  source: THREE.Group,
+  def: PartDefinition,
+  width: number,
+  height: number,
+  depth: number,
+  transparent: boolean,
+  opacity: number,
+  isSelected: boolean
+): THREE.Group {
+  const model = source.clone(true);
+  model.traverse((child) => {
+    if (!(child instanceof THREE.Mesh)) return;
+    child.geometry = child.geometry.clone();
+    const sourceMaterial = Array.isArray(child.material) ? child.material[0] : child.material;
+    const material = sourceMaterial.clone() as THREE.MeshStandardMaterial;
+    material.color.set(isSelected ? 0xfacc15 : def.color);
+    material.roughness = 0.36;
+    material.metalness = 0.72;
+    material.transparent = transparent;
+    material.opacity = opacity;
+    child.material = material;
+    child.castShadow = true;
+    child.receiveShadow = true;
+  });
+
+  const bounds = new THREE.Box3().setFromObject(model);
+  const size = bounds.getSize(new THREE.Vector3());
+  const center = bounds.getCenter(new THREE.Vector3());
+  model.scale.set(width / size.x, height / size.y, depth / size.z);
+  model.position.set(-center.x * model.scale.x, -center.y * model.scale.y, -center.z * model.scale.z);
+  return model;
 }
 
 function rotatedDimensions(
@@ -41,125 +184,163 @@ function disposeObject(object: THREE.Object3D) {
   });
 }
 
-function createModuleGeometry(
-  category: string,
-  width: number,
-  height: number,
-  depth: number
-): THREE.BufferGeometry {
-  const roundedCategories = new Set(["Dome", "Nacelle", "Diffuser", "Casing"]);
-  if (roundedCategories.has(category)) {
-    const geometry = new THREE.CylinderGeometry(
-      Math.min(width, depth) * 0.46,
-      Math.min(width, depth) * 0.5,
-      height,
-      10
-    );
-    geometry.scale(width / Math.max(width, depth), 1, depth / Math.max(width, depth));
-    return geometry;
-  }
-
-  const shape = new THREE.Shape();
-  const nose = category === "Aerofoil" || category === "Wing" || category === "Trim"
-    ? width * 0.2
-    : 0;
-  shape.moveTo(-width / 2 + nose, -depth / 2);
-  shape.lineTo(width / 2, -depth / 2);
-  shape.lineTo(width / 2 - nose, depth / 2);
-  shape.lineTo(-width / 2, depth / 2);
-  shape.closePath();
-  const geometry = new THREE.ExtrudeGeometry(shape, {
-    depth: height,
-    bevelEnabled: true,
-    bevelSegments: 2,
-    bevelSize: Math.min(0.08, width / 8, depth / 8),
-    bevelThickness: 0.04,
-  });
-  geometry.rotateX(-Math.PI / 2);
-  geometry.center();
-  return geometry;
-}
-
-function addCategoryDetails(
-  group: THREE.Group,
-  category: string,
+function createPartVisual(
+  def: PartDefinition,
   width: number,
   height: number,
   depth: number,
   transparent: boolean,
   opacity: number,
   isSelected: boolean
-) {
-  const detailMaterial = new THREE.MeshStandardMaterial({
-    color: 0x1f2937,
-    roughness: 0.28,
-    metalness: 0.85,
+): THREE.Group {
+  const group = new THREE.Group();
+  const material = new THREE.MeshStandardMaterial({
+    color: isSelected ? 0xfacc15 : new THREE.Color(def.color),
+    roughness: 0.36,
+    metalness: 0.72,
     transparent,
     opacity,
+    emissive: isSelected ? 0x713f12 : 0x000000,
+    emissiveIntensity: isSelected ? 0.45 : 0,
+  });
+  const darkMaterial = new THREE.MeshStandardMaterial({
+    color: 0x172033,
+    roughness: 0.3,
+    metalness: 0.9,
+    transparent,
+    opacity,
+  });
+  const glassMaterial = new THREE.MeshStandardMaterial({
+    color: 0x38bdf8,
+    roughness: 0.08,
+    metalness: 0.45,
+    emissive: 0x075985,
+    emissiveIntensity: 0.4,
+    transparent: true,
+    opacity: opacity * 0.78,
   });
   const glowMaterial = new THREE.MeshStandardMaterial({
-    color: isSelected ? 0xffffff : 0x22d3ee,
+    color: isSelected ? 0xffffff : 0x67e8f9,
     emissive: isSelected ? 0xffffff : 0x0891b2,
-    emissiveIntensity: isSelected ? 1.2 : 0.9,
+    emissiveIntensity: isSelected ? 1.15 : 0.9,
     transparent,
     opacity,
   });
-  const radius = Math.min(width, depth) * 0.32;
+  const add = (geometry: THREE.BufferGeometry, meshMaterial = material, x = 0, y = 0, z = 0) => {
+    const mesh = new THREE.Mesh(geometry, meshMaterial);
+    mesh.position.set(x, y, z);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    group.add(mesh);
+    return mesh;
+  };
+  const box = (x: number, y: number, z: number, meshMaterial = material, px = 0, py = 0, pz = 0) =>
+    add(new THREE.BoxGeometry(x, y, z, 2, 1, 2), meshMaterial, px, py, pz);
+  const capsule = (radius: number, length: number, meshMaterial = material, px = 0, py = 0, pz = 0) => {
+    const mesh = add(new THREE.CapsuleGeometry(radius, length, 6, 12), meshMaterial, px, py, pz);
+    mesh.rotation.z = Math.PI / 2;
+    return mesh;
+  };
+  const wingShape = new THREE.Shape();
+  wingShape.moveTo(-width / 2, -depth / 2);
+  wingShape.lineTo(width / 2, -depth * 0.22);
+  wingShape.lineTo(width * 0.3, depth / 2);
+  wingShape.lineTo(-width / 2, depth * 0.3);
+  wingShape.closePath();
+  const addWing = () => {
+    const geometry = new THREE.ExtrudeGeometry(wingShape, { depth: Math.max(0.1, height * 0.32), bevelEnabled: true, bevelSize: 0.035, bevelThickness: 0.03, bevelSegments: 2 });
+    geometry.rotateX(-Math.PI / 2);
+    geometry.center();
+    add(geometry);
+    box(width * 0.62, 0.05, 0.055, glowMaterial, -width * 0.08, height * 0.2, -depth * 0.05);
+  };
 
-  if (category === "Cockpit") {
-    const canopy = new THREE.Mesh(
-      new THREE.SphereGeometry(1, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2),
-      new THREE.MeshStandardMaterial({
-        color: 0x164e63,
-        roughness: 0.12,
-        metalness: 0.5,
-        transparent: true,
-        opacity: 0.82,
-        emissive: 0x083344,
-        emissiveIntensity: 0.35,
-      })
-    );
-    canopy.scale.set(width * 0.38, height * 0.75, depth * 0.38);
-    canopy.position.y = height * 0.38;
-    group.add(canopy);
-  } else if (category === "Nacelle") {
-    const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(radius, Math.max(0.035, radius * 0.14), 8, 16),
-      detailMaterial
-    );
-    ring.rotation.x = Math.PI / 2;
-    ring.position.y = -height * 0.32;
-    group.add(ring);
-    const exhaust = new THREE.Mesh(
-      new THREE.CylinderGeometry(radius * 0.72, radius * 0.9, 0.04, 12),
-      glowMaterial
-    );
-    exhaust.position.y = -height / 2 - 0.03;
-    group.add(exhaust);
-  } else if (category === "Dome") {
-    const cap = new THREE.Mesh(
-      new THREE.SphereGeometry(1, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2),
-      detailMaterial
-    );
-    cap.scale.set(width * 0.42, height * 0.55, depth * 0.42);
-    cap.position.y = height * 0.42;
-    group.add(cap);
-  } else if (category === "Diffuser") {
-    const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(radius, Math.max(0.04, radius * 0.16), 8, 16),
-      glowMaterial
-    );
-    ring.rotation.x = Math.PI / 2;
-    ring.position.y = -height * 0.4;
-    group.add(ring);
-  } else if (category === "Wing" || category === "Aerofoil" || category === "Trim") {
-    const strut = new THREE.Mesh(
-      new THREE.BoxGeometry(width * 0.08, height * 1.4, depth * 0.8),
-      detailMaterial
-    );
-    strut.position.x = width * 0.3;
-    group.add(strut);
+  switch (def.category) {
+    case "Cockpit": {
+      // Tapered command hull with a separate blue canopy, rather than a cube.
+      const hull = new THREE.CylinderGeometry(depth * 0.48, depth * 0.34, width, 6, 1, false);
+      hull.rotateZ(Math.PI / 2);
+      add(hull);
+      const canopy = add(new THREE.SphereGeometry(1, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), glassMaterial, width * 0.06, height * 0.32, 0);
+      canopy.scale.set(width * 0.38, height * 0.8, depth * 0.44);
+      box(width * 0.1, height * 0.25, depth * 0.94, darkMaterial, -width * 0.28, 0, 0);
+      break;
+    }
+    case "Hab":
+    case "Walkway":
+    case "Landing Bay":
+      box(width, height * 0.72, depth);
+      box(width * 0.74, 0.04, depth * 0.72, darkMaterial, 0, height * 0.38, 0);
+      for (const x of [-0.28, 0.28]) box(width * 0.07, height * 0.82, depth * 0.86, darkMaterial, x * width, 0, 0);
+      if (def.category === "Hab") {
+        for (const x of [-0.2, 0.2]) box(width * 0.22, height * 0.28, 0.035, glassMaterial, x * width, height * 0.18, -depth * 0.51);
+      }
+      if (def.category === "Landing Bay") box(width * 0.7, 0.035, depth * 0.54, darkMaterial, 0, -height * 0.38, 0);
+      break;
+    case "Aerofoil":
+    case "Wing":
+    case "Trim":
+    case "Fin":
+      addWing();
+      if (def.category === "Fin") box(width * 0.14, height * 1.35, depth * 0.38, darkMaterial, 0, height * 0.48, 0);
+      break;
+    case "Nacelle":
+    case "Thruster":
+    case "Diffuser": {
+      const radius = Math.min(width, depth) * 0.27;
+      capsule(radius, Math.max(0.12, width - radius * 2), material);
+      const exhaust = add(new THREE.CylinderGeometry(radius * 0.74, radius * 0.92, 0.06, 16), glowMaterial, width * 0.5, 0, 0);
+      exhaust.rotation.z = Math.PI / 2;
+      if (def.category !== "Thruster") {
+        const ring = add(new THREE.TorusGeometry(radius * 0.96, radius * 0.07, 8, 20), darkMaterial, width * 0.28, 0, 0);
+        ring.rotation.y = Math.PI / 2;
+      }
+      break;
+    }
+    case "Dome":
+    case "Casing":
+    case "Shielding":
+      box(width * 0.9, height * 0.5, depth * 0.9, darkMaterial, 0, -height * 0.12, 0);
+      const dome = add(new THREE.SphereGeometry(1, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), def.category === "Shielding" ? glowMaterial : material, 0, height * 0.08, 0);
+      dome.scale.set(width * 0.44, height * 0.72, depth * 0.44);
+      break;
+    case "Cowling":
+    case "Sidepod":
+      capsule(Math.min(height, depth) * 0.36, Math.max(0.12, width * 0.62), material);
+      box(width * 0.35, height * 0.18, depth * 0.96, darkMaterial, 0, height * 0.23, 0);
+      break;
+    case "Landing Gear":
+      box(width * 0.28, height * 0.9, depth * 0.28, darkMaterial, 0, -height * 0.15, 0);
+      box(width * 0.6, height * 0.12, depth * 0.7, material, 0, -height * 0.53, 0);
+      break;
+    case "Weapon Mount":
+      box(width * 0.6, height * 0.32, depth * 0.6, darkMaterial, 0, -height * 0.1, 0);
+      const barrel = add(new THREE.CylinderGeometry(depth * 0.1, depth * 0.12, width * 0.78, 10), material, width * 0.22, height * 0.18, 0);
+      barrel.rotation.z = Math.PI / 2;
+      break;
+    case "Hull Attachment":
+      if (def.id.includes("sphere")) add(new THREE.SphereGeometry(Math.min(width, depth) * 0.38, 16, 12));
+      else if (def.id.includes("rack")) {
+        for (const x of [-0.28, 0, 0.28]) box(width * 0.14, height * 0.55, depth * 0.72, material, x * width, 0, 0);
+      } else capsule(Math.min(height, depth) * 0.32, Math.max(0.1, width * 0.55));
+      break;
+    case "Hull Connector":
+      box(width * 0.82, height * 0.42, depth * 0.82, darkMaterial);
+      for (const x of [-0.3, 0.3]) box(width * 0.1, height * 0.52, depth * 0.92, material, x * width, 0, 0);
+      break;
+    case "Window":
+      box(width * 0.94, height * 0.26, depth * 0.08, glassMaterial, 0, 0, -depth * 0.36);
+      box(width * 0.94, height * 0.26, depth * 0.08, glassMaterial, 0, 0, depth * 0.36);
+      break;
+    case "Reactor":
+      add(new THREE.CylinderGeometry(Math.min(width, depth) * 0.34, Math.min(width, depth) * 0.34, height * 0.9, 16), darkMaterial);
+      add(new THREE.CylinderGeometry(Math.min(width, depth) * 0.17, Math.min(width, depth) * 0.17, height * 1.02, 16), glowMaterial);
+      break;
+    default:
+      box(width * 0.78, height * 0.65, depth * 0.78);
+      box(width * 0.5, 0.04, depth * 0.5, darkMaterial, 0, height * 0.35, 0);
   }
+  return group;
 }
 
 export default function ShipPreview3D({
@@ -342,6 +523,7 @@ export default function ShipPreview3D({
   useEffect(() => {
     const partsGroup = partsGroupRef.current;
     if (!partsGroup) return;
+    let isDisposed = false;
 
     partMapRef.current.clear();
 
@@ -370,110 +552,71 @@ export default function ShipPreview3D({
       const z = placed.row + h / 2 - GRID_ROWS / 2;
       const y = placed.layer * layerSpacing + layerHeight / 2;
 
-      // Color from part def
-      const color = new THREE.Color(def.color);
-
-      // Material
       const isSelected = selectedInstanceId === placed.instanceId;
       const isCurrentLayer = currentLayer === undefined || placed.layer === currentLayer;
-
       const opacity = isCurrentLayer ? 0.95 : 0.35;
       const transparent = !isCurrentLayer;
 
-      // Corvette modules use softened edges and layered panels instead of
-      // plain cubes, matching the manufactured sci-fi look of the game.
-      const moduleWidth = Math.max(0.2, w - 0.08);
-      const moduleDepth = Math.max(0.2, h - 0.08);
+      // Render the part in its original orientation, then rotate the entire
+      // assembly. Raster coordinates continue to use the rotated footprint.
+      const moduleWidth = Math.max(0.2, def.w - 0.08);
+      const moduleDepth = Math.max(0.2, def.h - 0.08);
       const moduleHeight = Math.max(0.2, layerHeight - 0.08);
-      const geometry = createModuleGeometry(
-        def.category,
-        moduleWidth,
-        moduleHeight,
-        moduleDepth
-      );
-
-      const material = new THREE.MeshStandardMaterial({
-        color: isSelected ? 0xfacc15 : color,
-        roughness: 0.38,
-        metalness: 0.7,
-        transparent,
-        opacity,
-        emissive: isSelected ? 0x713f12 : color,
-        emissiveIntensity: isSelected ? 0.5 : 0.08,
-      });
-
       const partGroup = new THREE.Group();
-      partGroup.position.set(x, y, z);
-      partGroup.userData.isPartModule = true;
-
-      const mesh = new THREE.Mesh(geometry, material);
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      partGroup.add(mesh);
-
-      // Add edge highlight to block
-      const edgesGeo = new THREE.EdgesGeometry(geometry);
-      const edgeMat = new THREE.LineBasicMaterial({
-        color: isSelected ? 0xffffff : 0x000000,
-        linewidth: isSelected ? 2 : 1,
-        transparent: true,
-        opacity: isCurrentLayer ? 0.6 : 0.2,
-      });
-      const wireframe = new THREE.LineSegments(edgesGeo, edgeMat);
-      partGroup.add(wireframe);
-
-      // Recessed top panel and illuminated service strip echo the exposed
-      // mechanical panels and cockpit lighting of NMS starship parts.
-      const panelMaterial = new THREE.MeshStandardMaterial({
-        color: 0x111827,
-        roughness: 0.55,
-        metalness: 0.8,
-        transparent,
-        opacity: isCurrentLayer ? 0.95 : 0.35,
-      });
-      const panel = new THREE.Mesh(
-        new THREE.BoxGeometry(
-          Math.max(0.18, moduleWidth * 0.68),
-          0.035,
-          Math.max(0.18, moduleDepth * 0.68)
-        ),
-        panelMaterial
-      );
-      panel.position.y = moduleHeight / 2 + 0.025;
-      partGroup.add(panel);
-
-      const accentMaterial = new THREE.MeshStandardMaterial({
-        color: isSelected ? 0xffffff : 0x38bdf8,
-        emissive: isSelected ? 0xffffff : 0x0284c7,
-        emissiveIntensity: isSelected ? 1 : 0.65,
-        transparent,
-        opacity: isCurrentLayer ? 0.9 : 0.3,
-      });
-      const accent = new THREE.Mesh(
-        new THREE.BoxGeometry(
-          Math.max(0.12, moduleWidth * 0.32),
-          0.045,
-          Math.min(0.06, Math.max(0.025, moduleDepth * 0.12))
-        ),
-        accentMaterial
-      );
-      accent.position.set(-moduleWidth * 0.18, moduleHeight / 2 + 0.05, 0);
-      partGroup.add(accent);
-
-      addCategoryDetails(
-        partGroup,
-        def.category,
+      const fallbackVisual = createPartVisual(
+        def,
         moduleWidth,
         moduleHeight,
         moduleDepth,
         transparent,
-        isCurrentLayer ? 0.9 : 0.3,
+        opacity,
         isSelected
       );
+      partGroup.add(fallbackVisual);
+      partGroup.position.set(x, y, z);
+      partGroup.rotation.y = THREE.MathUtils.degToRad(placed.rotation);
+      partGroup.userData.isPartModule = true;
+
+      const communityModelUrl = COMMUNITY_MODELS[def.id];
+      if (communityModelUrl) {
+        loadCommunityModel(communityModelUrl)
+          .then((source) => {
+            if (isDisposed || !partGroup.parent) return;
+            const communityModel = cloneAndFitCommunityModel(
+              source,
+              def,
+              moduleWidth,
+              moduleHeight,
+              moduleDepth,
+              transparent,
+              opacity,
+              isSelected
+            );
+            fallbackVisual.visible = false;
+            partGroup.add(communityModel);
+          })
+          .catch((error: unknown) => {
+            console.warn(`Community-Modell für ${def.name} konnte nicht geladen werden.`, error);
+          });
+      }
+
+      if (isSelected) {
+        const selection = new THREE.Mesh(
+          new THREE.RingGeometry(Math.max(moduleWidth, moduleDepth) * 0.42, Math.max(moduleWidth, moduleDepth) * 0.46, 32),
+          new THREE.MeshBasicMaterial({ color: 0xfacc15, transparent: true, opacity: 0.85, side: THREE.DoubleSide })
+        );
+        selection.rotation.x = -Math.PI / 2;
+        selection.position.y = -moduleHeight / 2 - 0.02;
+        partGroup.add(selection);
+      }
 
       partsGroup.add(partGroup);
       partMapRef.current.set(partGroup, placed);
     });
+
+    return () => {
+      isDisposed = true;
+    };
   }, [placedParts, allParts, currentLayer, selectedInstanceId, explodeGap, onlyCurrentLayer]);
 
   // Raycasting for hover & selection

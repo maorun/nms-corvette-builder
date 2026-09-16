@@ -1,0 +1,18 @@
+Community Corvette Construction Pack assets
+
+Creator: The_Mad_Printer
+License: Creative Commons Attribution-ShareAlike (CC BY-SA)
+
+Source packs:
+- https://cults3d.com/en/3d-model/game/no-man-s-sky-nms-corvette-construction-pack-cockpits-and-habitation-pack
+- https://cults3d.com/en/3d-model/game/no-man-s-sky-nms-corvette-construction-pack-access-and-docking-pack
+- https://cults3d.com/en/3d-model/game/no-man-s-sky-nms-corvette-construction-pack-connectors-pack
+- https://cults3d.com/en/3d-model/game/no-man-s-sky-nms-corvette-construction-pack-plating-pack-1
+- https://cults3d.com/en/3d-model/game/no-man-s-sky-nms-corvette-construction-pack-plating-pack-2
+- https://cults3d.com/en/3d-model/game/no-man-s-sky-nms-corvette-construction-pack-wings-pack
+- https://cults3d.com/en/3d-model/game/no-man-s-sky-nms-corvette-construction-pack-attachments-pack
+- https://cults3d.com/en/3d-model/game/no-man-s-sky-nms-corvette-construction-pack-combat-pack
+- https://cults3d.com/en/3d-model/game/no-man-s-sky-nms-corvette-construction-pack-generator-pack
+- https://cults3d.com/en/3d-model/game/no-man-s-sky-nms-corvette-construction-pack-thrusters-pack
+
+The GLB files in this directory were converted from the creator's STL files, Draco-compressed, and prepared for browser rendering. Any redistribution or adaptation must retain appropriate attribution and be shared under the same CC BY-SA license.
