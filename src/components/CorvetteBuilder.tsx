@@ -13,6 +13,7 @@ import {
   PartCategory,
   Rotation,
   HAB_INTERIOR_SLOTS,
+  INTERIOR_ALLOWED_SURFACES,
   InteriorSlotId,
   PlacedInteriorPart,
 } from "@/lib/corvetteData";
@@ -187,7 +188,9 @@ export default function CorvetteBuilder() {
     const updatedCustomParts = customParts.filter((p) => p.id !== partId);
     saveCustomParts(updatedCustomParts);
     setPlacedParts((prev) => prev.filter((p) => p.partId !== partId));
+    setInteriorParts((prev) => prev.filter((p) => p.partId !== partId));
     if (selectedPartId === partId) setSelectedPartId(null);
+    if (selectedInteriorPartId === partId) setSelectedInteriorPartId(null);
   };
 
   const countByPartId = useCallback(
@@ -201,11 +204,10 @@ export default function CorvetteBuilder() {
     (partDef: PartDefinition) => {
       if (!partDef.countGroup) return countByPartId(partDef.id);
       const partSet = groupedPartIds[partDef.countGroup] ?? EMPTY_PART_SET;
-      return placedParts.filter((p) => {
-        return partSet.has(p.partId);
-      }).length;
+      return placedParts.filter((p) => partSet.has(p.partId)).length +
+        interiorParts.filter((p) => partSet.has(p.partId)).length;
     },
-    [placedParts, countByPartId, groupedPartIds]
+    [placedParts, interiorParts, countByPartId, groupedPartIds]
   );
 
   const openInteriorEditor = useCallback((habInstanceId: string) => {
@@ -218,7 +220,10 @@ export default function CorvetteBuilder() {
   const placeInteriorPart = useCallback((slotId: InteriorSlotId) => {
     if (!activeInteriorHabId || !selectedInteriorPartId) return;
     const definition = allParts.find((part) => part.id === selectedInteriorPartId);
-    if (!definition || definition.category !== "Interior") return;
+    const slot = HAB_INTERIOR_SLOTS.find((candidate) => candidate.id === slotId);
+    if (!definition || definition.category !== "Interior" || !slot) return;
+    const allowedSurfaces = definition.allowedInteriorSurfaces ?? INTERIOR_ALLOWED_SURFACES[definition.id];
+    if (allowedSurfaces && !allowedSurfaces.includes(slot.surface)) return;
     if (countByLimitKey(definition) >= definition.maxCount) return;
     if (interiorParts.some((part) => part.parentInstanceId === activeInteriorHabId && part.slotId === slotId)) return;
 
@@ -395,6 +400,9 @@ export default function CorvetteBuilder() {
   const activeInteriorParts = activeInteriorHabId
     ? interiorParts.filter((part) => part.parentInstanceId === activeInteriorHabId)
     : [];
+  const selectedInteriorDefinition = selectedInteriorPartId
+    ? allParts.find((part) => part.id === selectedInteriorPartId)
+    : null;
 
   // Interior parts are only available within the selected Hab, never on the outer grid.
   const filteredParts = useMemo(() => {
@@ -646,10 +654,12 @@ export default function CorvetteBuilder() {
                 {HAB_INTERIOR_SLOTS.map((slot) => {
                   const placed = activeInteriorParts.find((part) => part.slotId === slot.id);
                   const definition = placed ? allParts.find((part) => part.id === placed.partId) : null;
-                  return <button key={slot.id} onClick={() => placed ? removeInteriorPart(placed.instanceId) : placeInteriorPart(slot.id)} className={`min-h-24 p-3 rounded border text-left transition-colors ${placed ? "border-violet-400 bg-violet-500/15" : selectedInteriorPartId ? "border-violet-500/60 bg-violet-500/10 hover:bg-violet-500/20" : "border-gray-700 bg-gray-800/60"}`}>
+                  const allowedSurfaces = selectedInteriorDefinition?.allowedInteriorSurfaces ?? (selectedInteriorDefinition ? INTERIOR_ALLOWED_SURFACES[selectedInteriorDefinition.id] : undefined);
+                  const isCompatible = !allowedSurfaces || allowedSurfaces.includes(slot.surface);
+                  return <button key={slot.id} disabled={!placed && !isCompatible} onClick={() => placed ? removeInteriorPart(placed.instanceId) : placeInteriorPart(slot.id)} className={`min-h-24 p-3 rounded border text-left transition-colors ${placed ? "border-violet-400 bg-violet-500/15" : !isCompatible ? "border-gray-800 bg-gray-900/40 opacity-45 cursor-not-allowed" : selectedInteriorPartId ? "border-violet-500/60 bg-violet-500/10 hover:bg-violet-500/20" : "border-gray-700 bg-gray-800/60"}`}>
                     <span className="block text-[10px] uppercase text-gray-500">{slot.surface}</span>
                     <span className="block text-xs font-semibold mt-1" style={definition ? { color: definition.color } : undefined}>{definition ? definition.name : slot.name}</span>
-                    <span className="block text-[10px] text-gray-500 mt-1">{placed ? "Klick zum Entfernen" : selectedInteriorPartId ? "Klick zum Platzieren" : "Freier Slot"}</span>
+                    <span className="block text-[10px] text-gray-500 mt-1">{placed ? "Klick zum Entfernen" : !isCompatible ? "Nicht kompatibel" : selectedInteriorPartId ? "Klick zum Platzieren" : "Freier Slot"}</span>
                   </button>;
                 })}
               </div>

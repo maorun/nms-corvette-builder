@@ -478,8 +478,15 @@ export default function ShipPreview3D({
       );
 
       if (placed.instanceId === activeInteriorHabId) {
-        material.transparent = true;
-        material.opacity = 0.16;
+        partGroup.traverse((object) => {
+          if (!(object instanceof THREE.Mesh)) return;
+          const materials = Array.isArray(object.material) ? object.material : [object.material];
+          for (const meshMaterial of materials) {
+            meshMaterial.transparent = true;
+            meshMaterial.opacity = 0.16;
+            meshMaterial.needsUpdate = true;
+          }
+        });
         for (const interiorPart of interiorParts.filter((part) => part.parentInstanceId === placed.instanceId)) {
           const interiorDef = allParts.find((part) => part.id === interiorPart.partId);
           const slot = HAB_INTERIOR_SLOTS.find((candidate) => candidate.id === interiorPart.slotId);

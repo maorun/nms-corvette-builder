@@ -51,6 +51,8 @@ export const PART_CATEGORIES: PartCategory[] = [
   "Custom",
 ];
 
+export type InteriorSurface = "Boden" | "Wand" | "Decke";
+
 export interface PartDefinition {
   id: string;
   name: string;
@@ -65,6 +67,8 @@ export interface PartDefinition {
   h: number;
   color: string;
   description: string;
+  /** Restricts Interior parts to compatible Hab surfaces. */
+  allowedInteriorSurfaces?: InteriorSurface[];
 }
 
 export const GRID_COLS = 10;
@@ -1044,7 +1048,7 @@ export type InteriorSlotId = "floor-left" | "floor-right" | "wall-left" | "wall-
 export interface InteriorSlot {
   id: InteriorSlotId;
   name: string;
-  surface: "Boden" | "Wand" | "Decke";
+  surface: InteriorSurface;
   x: number;
   y: number;
   z: number;
@@ -1058,6 +1062,19 @@ export const HAB_INTERIOR_SLOTS: InteriorSlot[] = [
   { id: "wall-right", name: "Wand rechts", surface: "Wand", x: 0.42, y: 0.05, z: -0.32 },
   { id: "ceiling", name: "Decke", surface: "Decke", x: 0, y: 0.3, z: 0 },
 ];
+
+export const INTERIOR_ALLOWED_SURFACES: Record<string, InteriorSurface[]> = {
+  "bunk-beds": ["Boden"],
+  "crew-berth": ["Boden"],
+  "living-wall": ["Wand"],
+  "medi-pod": ["Boden"],
+  "refiner-unit": ["Boden"],
+  "air-purifier": ["Wand", "Decke"],
+  "satellite-receiver": ["Wand", "Decke"],
+  "mission-radar": ["Wand"],
+  "radar-dome": ["Wand", "Decke"],
+  "nutrition-unit": ["Boden"],
+};
 
 export interface PlacedInteriorPart {
   instanceId: string;
