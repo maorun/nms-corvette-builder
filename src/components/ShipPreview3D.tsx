@@ -10,10 +10,14 @@ import {
   GRID_ROWS,
   GRID_LAYERS,
   Rotation,
+  HAB_INTERIOR_SLOTS,
+  PlacedInteriorPart,
 } from "@/lib/corvetteData";
 
 interface ShipPreview3DProps {
   placedParts: PlacedPart[];
+  interiorParts: PlacedInteriorPart[];
+  activeInteriorHabId?: string | null;
   allParts: PartDefinition[];
   currentLayer?: number;
   selectedInstanceId?: string | null;
@@ -164,6 +168,8 @@ function addCategoryDetails(
 
 export default function ShipPreview3D({
   placedParts,
+  interiorParts,
+  activeInteriorHabId,
   allParts,
   currentLayer,
   selectedInstanceId,
@@ -471,10 +477,27 @@ export default function ShipPreview3D({
         isSelected
       );
 
+      if (placed.instanceId === activeInteriorHabId) {
+        material.transparent = true;
+        material.opacity = 0.16;
+        for (const interiorPart of interiorParts.filter((part) => part.parentInstanceId === placed.instanceId)) {
+          const interiorDef = allParts.find((part) => part.id === interiorPart.partId);
+          const slot = HAB_INTERIOR_SLOTS.find((candidate) => candidate.id === interiorPart.slotId);
+          if (!interiorDef || !slot) continue;
+          const furnishing = new THREE.Mesh(
+            new THREE.BoxGeometry(moduleWidth * 0.28, moduleHeight * 0.34, moduleDepth * 0.26),
+            new THREE.MeshStandardMaterial({ color: interiorDef.color, roughness: 0.45, metalness: 0.35 })
+          );
+          furnishing.position.set(slot.x * moduleWidth, slot.y * moduleHeight, slot.z * moduleDepth);
+          furnishing.castShadow = true;
+          partGroup.add(furnishing);
+        }
+      }
+
       partsGroup.add(partGroup);
       partMapRef.current.set(partGroup, placed);
     });
-  }, [placedParts, allParts, currentLayer, selectedInstanceId, explodeGap, onlyCurrentLayer]);
+  }, [placedParts, interiorParts, activeInteriorHabId, allParts, currentLayer, selectedInstanceId, explodeGap, onlyCurrentLayer]);
 
   // Raycasting for hover & selection
   const handlePointerMoveOrClick = useCallback(

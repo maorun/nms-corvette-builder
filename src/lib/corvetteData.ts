@@ -1038,3 +1038,30 @@ export interface PlacedPart {
   layer: number;
   rotation: Rotation;
 }
+
+export type InteriorSlotId = "floor-left" | "floor-right" | "wall-left" | "wall-right" | "ceiling";
+
+export interface InteriorSlot {
+  id: InteriorSlotId;
+  name: string;
+  surface: "Boden" | "Wand" | "Decke";
+  x: number;
+  y: number;
+  z: number;
+}
+
+/** Local coordinates within a Hab module, normalized around its center. */
+export const HAB_INTERIOR_SLOTS: InteriorSlot[] = [
+  { id: "floor-left", name: "Boden links", surface: "Boden", x: -0.28, y: -0.28, z: 0 },
+  { id: "floor-right", name: "Boden rechts", surface: "Boden", x: 0.28, y: -0.28, z: 0 },
+  { id: "wall-left", name: "Wand links", surface: "Wand", x: -0.42, y: 0.05, z: -0.32 },
+  { id: "wall-right", name: "Wand rechts", surface: "Wand", x: 0.42, y: 0.05, z: -0.32 },
+  { id: "ceiling", name: "Decke", surface: "Decke", x: 0, y: 0.3, z: 0 },
+];
+
+export interface PlacedInteriorPart {
+  instanceId: string;
+  partId: string;
+  parentInstanceId: string;
+  slotId: InteriorSlotId;
+}
