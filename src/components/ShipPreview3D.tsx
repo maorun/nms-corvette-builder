@@ -562,6 +562,9 @@ export default function ShipPreview3D({
       const isCurrentLayer = currentLayer === undefined || placed.layer === currentLayer;
       const opacity = isCurrentLayer ? 0.95 : 0.35;
       const transparent = !isCurrentLayer;
+      const isActiveInteriorHab = placed.instanceId === activeInteriorHabId;
+      const visualOpacity = isActiveInteriorHab ? 0.16 : opacity;
+      const visualTransparent = transparent || isActiveInteriorHab;
 
       // Render the part in its original orientation, then rotate the entire
       // assembly. Raster coordinates continue to use the rotated footprint.
@@ -574,8 +577,8 @@ export default function ShipPreview3D({
         moduleWidth,
         moduleHeight,
         moduleDepth,
-        transparent,
-        opacity,
+        visualTransparent,
+        visualOpacity,
         isSelected
       );
       partGroup.add(fallbackVisual);
@@ -594,8 +597,8 @@ export default function ShipPreview3D({
               moduleWidth,
               moduleHeight,
               moduleDepth,
-              transparent,
-              opacity,
+              visualTransparent,
+              visualOpacity,
               isSelected
             );
             fallbackVisual.visible = false;
@@ -630,13 +633,42 @@ export default function ShipPreview3D({
           const interiorDef = allParts.find((part) => part.id === interiorPart.partId);
           const slot = HAB_INTERIOR_SLOTS.find((candidate) => candidate.id === interiorPart.slotId);
           if (!interiorDef || !slot) continue;
-          const furnishing = new THREE.Mesh(
-            new THREE.BoxGeometry(moduleWidth * 0.28, moduleHeight * 0.34, moduleDepth * 0.26),
+
+          const furnishingGroup = new THREE.Group();
+          furnishingGroup.position.set(slot.x * moduleWidth, slot.y * moduleHeight, slot.z * moduleDepth);
+          const furnishingWidth = interiorPart.slotId.startsWith("wall") ? moduleWidth * 0.22 : moduleWidth * 0.3;
+          const furnishingHeight = interiorPart.slotId === "ceiling" ? moduleHeight * 0.12 : moduleHeight * 0.34;
+          const furnishingDepth = interiorPart.slotId.startsWith("wall") ? moduleDepth * 0.08 : moduleDepth * 0.28;
+          const fallback = new THREE.Mesh(
+            new THREE.BoxGeometry(furnishingWidth, furnishingHeight, furnishingDepth),
             new THREE.MeshStandardMaterial({ color: interiorDef.color, roughness: 0.45, metalness: 0.35 })
           );
-          furnishing.position.set(slot.x * moduleWidth, slot.y * moduleHeight, slot.z * moduleDepth);
-          furnishing.castShadow = true;
-          partGroup.add(furnishing);
+          fallback.castShadow = true;
+          furnishingGroup.add(fallback);
+          partGroup.add(furnishingGroup);
+
+          const interiorModelUrl = COMMUNITY_MODELS[interiorDef.id];
+          if (interiorModelUrl) {
+            loadCommunityModel(interiorModelUrl)
+              .then((source) => {
+                if (isDisposed || !furnishingGroup.parent) return;
+                const communityModel = cloneAndFitCommunityModel(
+                  source,
+                  interiorDef,
+                  furnishingWidth,
+                  furnishingHeight,
+                  furnishingDepth,
+                  false,
+                  0.95,
+                  false
+                );
+                fallback.visible = false;
+                furnishingGroup.add(communityModel);
+              })
+              .catch((error: unknown) => {
+                console.warn(`Community-Innenraummodell für ${interiorDef.name} konnte nicht geladen werden.`, error);
+              });
+          }
         }
       }
 
