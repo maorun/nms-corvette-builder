@@ -8,113 +8,83 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
----
+# NMS Corvette Builder – Entwicklungsanweisungen
 
-# NMS Corvette Builder – Agent Guidelines
+## Projektüberblick
 
-## Project Overview
+- Entwickle eine offlinefähige Progressive Web App zum Planen von No Man’s Sky-Korvetten.
+- Player-facing UI, Metadaten und README-Texte sind auf **Deutsch**. Neue sichtbare Texte ebenfalls auf Deutsch verfassen.
+- Stack: **Next.js 16** (App Router), **React 19**, **TypeScript** im Strict Mode, **Tailwind CSS v4**, **Three.js** und `next-pwa`.
+- Die Anwendung ist eine clientseitige Einzelseiten-Erfahrung. Interaktive Komponenten und WebGL-Code benötigen `"use client"`.
 
-- **Purpose**: An **offline-capable Progressive Web App (PWA)** that lets No Man's Sky players plan and optimise their corvette (starship) technology loadouts before building them in-game.
-- **Stack**: Next.js 16 (App Router) + React 19 + TypeScript + Tailwind CSS v4, with `three` (Three.js) for 3D rendering and `next-pwa` for offline/service-worker support.
-- **UI language**: Player-facing text (README, page metadata, descriptions) is written in **German** — keep new UI copy consistent with this.
-- **Status**: Work in progress (see `README.md`).
+## Wichtige Dateien
 
-### Key Features
-- **3D tech grid** – 10 columns × 6 rows per layer, 6 layers deep (matches S-class max in vanilla NMS)
-- **Rotatable parts** – 0°, 90°, 180°, 270° rotation with correct dimension swapping
-- **Max-count enforcement** per part type (mirrors in-game limits)
-- **Per-layer collision detection** – the same cell can be used on different layers
-- **Live 3D ship preview** – rendered with Three.js, procedurally generating geometry per part category
-- **Offline / PWA** – service worker via `next-pwa`, installable on mobile and desktop
+- `src/app/layout.tsx` – Root-Layout, deutsche Seitensprache, PWA-Metadaten.
+- `src/app/page.tsx` – Rendert den Builder.
+- `src/app/globals.css` – globale Styles und Tailwind-Import.
+- `src/components/CorvetteBuilder.tsx` – Builder-Zustand, Außenraster, Layer, Teilekatalog, Innenraumeditor und Live-Konstruktionsprüfung.
+- `src/components/ShipPreview3D.tsx` – Three.js-Szene, Community-GLB-Loader, Draco-Dekodierung, prozedurale Meshes und Hab-Schnittansicht.
+- `src/lib/corvetteData.ts` – Rasterkonstanten, Teilekatalog, Teil-/Innenraumtypen und Hab-Slotdefinitionen.
+- `src/lib/constructionValidation.ts` – reine, UI-unabhängige Validierung der Konstruktion.
+- `src/types/next-pwa.d.ts` – Typ-Shim für das untypisierte `next-pwa`-Paket.
+- `public/models/community-corvette/` – versionierte, Draco-komprimierte Community-GLBs, Draco-Decoder und `ATTRIBUTION.txt`.
+- `public/manifest.json` – installierbares PWA-Manifest.
+- `next.config.ts` – PWA-Konfiguration; Service Worker nur im Produktionsbuild.
+- `eslint.config.mjs` – Flat-Config; ignoriert ausschließlich den unveränderten vendorten Draco-Decoder.
 
----
+## Daten- und Platzierungsmodell
 
-## Directory Structure & Key Files
+- Außenraster: `GRID_COLS = 10`, `GRID_ROWS = 6`, `GRID_LAYERS = 6` in `corvetteData.ts`.
+- Wenn sich `GRID_LAYERS` ändert, `LAYER_LABELS` in `CorvetteBuilder.tsx` anpassen.
+- `PartDefinition` beschreibt Katalogteile über stabile `id`, `category`, `maxCount`, ungedrehte Rastermaße `w`/`h`, Farbe und Beschreibung.
+- `PlacedPart` beschreibt ein Außenbauteil über `instanceId`, `partId`, `col`, `row`, `layer` und `rotation` (`0 | 90 | 180 | 270`).
+- Bei 90°/270° müssen Rastermaße und 3D-Darstellung korrekt rotieren. Rasterkoordinaten verwenden den gedrehten Footprint; die 3D-Baugruppe selbst muss ebenfalls rotiert werden.
+- Außenbauteile kollidieren nur innerhalb derselben Ebene. Dieselbe Zelle darf auf verschiedenen Ebenen belegt sein.
+- Maximalanzahlen gelten global über alle Außenebenen und Innenrauminstanzen.
 
-- `src/app/layout.tsx` – Root layout, PWA metadata (manifest, theme-color), sets `lang="de"`
-- `src/app/page.tsx` – Single-page shell that renders `<CorvetteBuilder />`
-- `src/app/globals.css` – Tailwind base styles
-- `src/app/favicon.ico` – App icon (32×32)
-- `src/components/CorvetteBuilder.tsx` – Main interactive builder component (all UI + state, grid/layer logic, `LAYER_LABELS`)
-- `src/components/ShipPreview3D.tsx` – Client component (`"use client"`) rendering a live 3D preview of placed parts using Three.js; procedurally builds geometry per `PartCategory`
-- `src/lib/corvetteData.ts` – Grid constants, `PartCategory`/`PartDefinition`/`PlacedPart` types, and the `PARTS` catalog
-- `src/types/next-pwa.d.ts` – Type declaration shim for `next-pwa` (untyped module)
-- `public/manifest.json` – PWA manifest
-- `public/icon-192.png`, `public/icon-512.png` – PWA icons
-- `next.config.ts` – Next.js config with `next-pwa` integration (disabled in dev, enabled on `npm run build`)
+## Innenräume
 
----
+- Teile der Kategorie `Interior` dürfen **nicht** im Außenraster platziert werden.
+- Sie werden als `PlacedInteriorPart` an `parentInstanceId` eines `Hab` und an einen `InteriorSlotId` gebunden.
+- Verwende die zentralen `HAB_INTERIOR_SLOTS` und `INTERIOR_ALLOWED_SURFACES`; der Platzierungshandler und die UI müssen beide inkompatible Boden-/Wand-/Decken-Slots verhindern.
+- Beim Löschen eines Habs alle zugehörigen Innenraumteile entfernen. Beim Löschen einer benutzerdefinierten Interior-Definition ebenfalls ihre Instanzen entfernen.
+- In der 3D-Ansicht ein bearbeitetes Hab als transparente Schnittansicht anzeigen. Innenraum-GLBs bevorzugen; für Teile ohne Community-Mesh die eigenen detaillierten prozeduralen Fallbacks beibehalten.
 
-## Data Model
+## 3D-Assets und Three.js
 
-### `corvetteData.ts` constants
-- `GRID_COLS` = 10 — columns per layer (matches NMS S-class)
-- `GRID_ROWS` = 6 — rows per layer (matches NMS S-class)
-- `GRID_LAYERS` — number of 3D layers (keep `LAYER_LABELS` in `CorvetteBuilder.tsx` in sync if this changes)
+- `COMMUNITY_MODELS` ordnet Teile-IDs statischen Dateien in `public/models/community-corvette/` zu.
+- GLBs sind Draco-komprimiert. Den lokalen Decoder über `/models/community-corvette/draco/` laden; keine externen Decoder-CDNs einführen, damit die PWA offline funktioniert.
+- Verwende bei wiederverwendeten geladenen GLBs einen Cache und klone Geometrien/Materialien pro Szene. Sonst beschädigt `disposeObject()` die gecachten Originalobjekte.
+- Jede beim Szenenwechsel entfernte Three.js-Geometrie, jedes Material und jede Textur muss durch `disposeObject()` freigegeben werden.
+- Behalte prozedurale Darstellungen als Fehler-/Ladefallback, falls ein Community-Asset nicht geladen werden kann.
+- Neue Community-Assets nur mit eindeutig kompatibler Lizenz einbinden. Quelle und Lizenz in `README.md` sowie `public/models/community-corvette/ATTRIBUTION.txt` dokumentieren.
+- Quellarchive mit STL-Dateien sind lokal unter `zips/` erlaubt, werden aber absichtlich durch `.gitignore` ausgeschlossen. Niemals committen.
 
-### `PartDefinition`
-```ts
-{
-  id: string;          // unique slug
-  name: string;        // display name
-  category: PartCategory;
-  maxCount: number;    // global max across all layers
-  w: number;           // width in grid cells (unrotated)
-  h: number;           // height in grid cells (unrotated)
-  color: string;       // hex colour for rendering
-  description: string; // tooltip text
-}
-```
+## Konstruktionsvalidierung
 
-### `PlacedPart`
-```ts
-{
-  instanceId: string;  // unique runtime ID
-  partId: string;      // references PartDefinition.id
-  col: number;
-  row: number;
-  layer: number;       // 0 = bottom, GRID_LAYERS-1 = top
-  rotation: Rotation;  // 0 | 90 | 180 | 270
-}
-```
+- `validateConstruction()` ist absichtlich rein und nicht-blockierend: Sie liefert `error`- und `warning`-Einträge, anstatt Platzierungen zu verhindern.
+- Der Validator prüft für nicht leere Entwürfe Cockpit, Hab, Antrieb (`Nacelle` oder `Thruster`) und Landebucht; fehlendes Fahrwerk ist ein Hinweis.
+- Die Verbindung zum Cockpit wird über orthogonal angrenzende belegte Rasterzellen in allen drei Achsen geprüft.
+- Bei neuen Pflichtteilen oder Regeln `constructionValidation.ts` und die Erklärung im Builder gemeinsam aktualisieren.
 
----
-
-## Development Workflow
+## Entwicklung und Prüfung
 
 ```bash
-npm install          # install dependencies
-npm run dev          # start dev server (http://localhost:3000)
-npm run build        # production build (also generates SW via next-pwa)
-npm run lint         # ESLint check
+npm install       # Abhängigkeiten installieren
+npm run dev       # Entwicklungsserver auf http://localhost:3000
+npm run lint      # ESLint
+npm run build     # Produktionsbuild; erzeugt PWA-Service-Worker
 ```
 
-> **Note:** `next-pwa` only generates service worker files (`public/sw.js`, `public/workbox-*.js`) during a **production build** (`npm run build`). These files are listed in `.gitignore`.
+- Vor Übergabe mindestens `npm run lint` und `npm run build` für relevante Änderungen ausführen.
+- `next-pwa` erzeugt `public/sw.js` und `public/workbox-*.js` nur im Produktionsbuild. Diese Dateien sind generiert, ignoriert und dürfen nicht bearbeitet oder committed werden.
+- Verwende den Alias `@/*` für Importe aus `src/`.
+- Neue TypeScript-Implementierungen strikt typisieren; kein `any` hinzufügen.
+- Halte UI-Logik im Builder und reine Berechnungen/Regeln in `src/lib/` getrennt.
 
----
+## Git- und Dokumentationsregeln
 
-## Extending the App
-
-### Adding new parts
-Edit `src/lib/corvetteData.ts` → append to the `PARTS` array following the existing pattern. Pick a distinct `color` and set an accurate `maxCount`.
-
-### Changing grid dimensions
-Update `GRID_COLS`, `GRID_ROWS`, or `GRID_LAYERS` in `corvetteData.ts`. The UI adapts automatically. Also update `LAYER_LABELS` in `CorvetteBuilder.tsx` if `GRID_LAYERS` changes.
-
-### Icons
-Icons are pixel-art PNGs generated by a Python script (see git history). Replace `public/icon-192.png`, `public/icon-512.png`, and `src/app/favicon.ico` with your preferred artwork keeping the same filenames and sizes.
-
-### PWA Manifest
-`public/manifest.json` – update `name`, `short_name`, `theme_color`, or icon entries as needed. Restart the dev server after changes.
-
----
-
-## Conventions & Best Practices
-
-- Use the `@/*` path alias (configured in `tsconfig.json`) for imports from `src/`, e.g. `import X from "@/lib/corvetteData"`.
-- TypeScript `strict` mode is enabled — avoid `any` and keep new code fully typed.
-- Linting uses `eslint-config-next` (core-web-vitals + typescript configs) via the flat config in `eslint.config.mjs`; run `npm run lint` before committing.
-- Client-only components (state, DOM/canvas/Three.js access) must start with the `"use client"` directive, matching `ShipPreview3D.tsx`.
-- The bundler/runtime uses Turbopack (`turbopack: {}` in `next.config.ts`).
-- `next-pwa` is disabled in development and only emits `public/sw.js` / `public/workbox-*.js` on `npm run build`; these generated files are git-ignored — don't hand-edit or commit them.
-- `CLAUDE.md` simply re-exports this file (`@AGENTS.md`); keep all substantive guidance in `AGENTS.md` rather than duplicating it elsewhere.
+- `CLAUDE.md` re-exportiert diese Datei (`@AGENTS.md`); in `CLAUDE.md` keine doppelten Anweisungen pflegen.
+- Nach einem erfolgreich gemergten Pull Request lokalen `master` mit `origin/master` synchronisieren und den zugehörigen lokalen Feature-Branch entfernen.
+- Vor dem Commit prüfen, dass `zips/`, `.next/`, erzeugte Service-Worker und andere lokale Artefakte nicht gestaged sind.
+- Bei Änderungen an Community-Assets immer Lizenz-/Attributionshinweise mitprüfen.
