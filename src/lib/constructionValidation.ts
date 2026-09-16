@@ -49,6 +49,7 @@ export function validateConstruction(
   const definitionsById = new Map(definitions.map((definition) => [definition.id, definition]));
   const cockpitParts = placedParts.filter((part) => definitionsById.get(part.partId)?.category === "Cockpit");
   const landingGear = placedParts.filter((part) => definitionsById.get(part.partId)?.category === "Landing Gear");
+  const landingBays = placedParts.filter((part) => definitionsById.get(part.partId)?.category === "Landing Bay");
 
   if (placedParts.length > 0 && cockpitParts.length === 0) {
     issues.push({
@@ -56,6 +57,15 @@ export function validateConstruction(
       severity: "error",
       title: "Kein Cockpit",
       message: "Platziere mindestens ein Cockpit, damit die Korvette einen Kommandobereich besitzt.",
+    });
+  }
+
+  if (placedParts.length > 0 && landingBays.length === 0) {
+    issues.push({
+      id: "missing-landing-bay",
+      severity: "error",
+      title: "Keine Landebucht",
+      message: "Platziere mindestens eine Landebucht, damit die Korvette landen und angedockt werden kann.",
     });
   }
 
