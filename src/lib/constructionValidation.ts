@@ -50,6 +50,11 @@ export function validateConstruction(
   const cockpitParts = placedParts.filter((part) => definitionsById.get(part.partId)?.category === "Cockpit");
   const landingGear = placedParts.filter((part) => definitionsById.get(part.partId)?.category === "Landing Gear");
   const landingBays = placedParts.filter((part) => definitionsById.get(part.partId)?.category === "Landing Bay");
+  const habitationModules = placedParts.filter((part) => definitionsById.get(part.partId)?.category === "Hab");
+  const propulsionParts = placedParts.filter((part) => {
+    const category = definitionsById.get(part.partId)?.category;
+    return category === "Nacelle" || category === "Thruster";
+  });
 
   if (placedParts.length > 0 && cockpitParts.length === 0) {
     issues.push({
@@ -57,6 +62,24 @@ export function validateConstruction(
       severity: "error",
       title: "Kein Cockpit",
       message: "Platziere mindestens ein Cockpit, damit die Korvette einen Kommandobereich besitzt.",
+    });
+  }
+
+  if (placedParts.length > 0 && habitationModules.length === 0) {
+    issues.push({
+      id: "missing-hab",
+      severity: "error",
+      title: "Kein Wohnmodul",
+      message: "Platziere mindestens ein Hab, damit die Korvette über einen nutzbaren Wohn- und Innenraumbereich verfügt.",
+    });
+  }
+
+  if (placedParts.length > 0 && propulsionParts.length === 0) {
+    issues.push({
+      id: "missing-propulsion",
+      severity: "error",
+      title: "Kein Antrieb",
+      message: "Platziere mindestens eine Gondel oder ein Triebwerk, damit die Korvette manövrierfähig ist.",
     });
   }
 
