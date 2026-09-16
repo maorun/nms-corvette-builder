@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Minifizierter, unveränderter WebAssembly-Decoder von Three.js.
+    "public/models/community-corvette/draco/**",
   ]),
 ]);
 
