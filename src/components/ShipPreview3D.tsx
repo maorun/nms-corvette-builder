@@ -347,6 +347,73 @@ function createPartVisual(
   return group;
 }
 
+function createInteriorFallbackVisual(
+  def: PartDefinition,
+  width: number,
+  height: number,
+  depth: number
+): THREE.Group {
+  const group = new THREE.Group();
+  const body = new THREE.MeshStandardMaterial({ color: def.color, roughness: 0.42, metalness: 0.45 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x172033, roughness: 0.36, metalness: 0.78 });
+  const display = new THREE.MeshStandardMaterial({ color: 0x67e8f9, emissive: 0x0891b2, emissiveIntensity: 0.8, roughness: 0.2, metalness: 0.3 });
+  const plant = new THREE.MeshStandardMaterial({ color: 0x4ade80, emissive: 0x166534, emissiveIntensity: 0.35, roughness: 0.7 });
+  const add = (geometry: THREE.BufferGeometry, material: THREE.Material, x = 0, y = 0, z = 0) => {
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.set(x, y, z);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    group.add(mesh);
+    return mesh;
+  };
+  const box = (x: number, y: number, z: number, material = body, px = 0, py = 0, pz = 0) => add(new THREE.BoxGeometry(x, y, z), material, px, py, pz);
+
+  switch (def.id) {
+    case "bunk-beds":
+      box(width * 0.9, height * 0.1, depth * 0.85, dark, 0, -height * 0.38, 0);
+      for (const y of [-0.22, 0.2]) {
+        box(width * 0.72, height * 0.16, depth * 0.68, body, 0, y * height, 0);
+        box(width * 0.62, height * 0.06, depth * 0.48, display, 0, (y + 0.1) * height, -depth * 0.05);
+      }
+      for (const y of [-0.18, 0.18]) box(width * 0.07, height * 0.04, depth * 0.08, dark, width * 0.43, y * height, 0);
+      break;
+    case "crew-berth": {
+      const pod = add(new THREE.CapsuleGeometry(Math.min(height, depth) * 0.3, width * 0.42, 6, 12), body);
+      pod.rotation.z = Math.PI / 2;
+      box(width * 0.24, height * 0.18, depth * 0.72, dark, width * 0.28, height * 0.12, 0);
+      box(width * 0.12, height * 0.1, depth * 0.55, display, width * 0.34, height * 0.22, 0);
+      break;
+    }
+    case "living-wall":
+      box(width * 0.92, height * 0.92, depth * 0.22, dark);
+      for (const x of [-0.28, 0, 0.28]) for (const y of [-0.25, 0.05, 0.28]) add(new THREE.SphereGeometry(Math.min(width, height) * 0.12, 10, 8), plant, x * width, y * height, -depth * 0.13);
+      break;
+    case "medi-pod": {
+      box(width * 0.82, height * 0.12, depth * 0.78, dark, 0, -height * 0.38, 0);
+      const chamber = add(new THREE.CapsuleGeometry(Math.min(height, depth) * 0.28, width * 0.38, 6, 14), body);
+      chamber.rotation.z = Math.PI / 2;
+      const readout = add(new THREE.CylinderGeometry(depth * 0.08, depth * 0.08, width * 0.42, 12), display);
+      readout.rotation.z = Math.PI / 2;
+      break;
+    }
+    case "refiner-unit":
+      box(width * 0.75, height * 0.44, depth * 0.72, body, 0, -height * 0.12, 0);
+      add(new THREE.CylinderGeometry(width * 0.16, width * 0.2, height * 0.48, 12), dark, -width * 0.2, height * 0.28, 0);
+      add(new THREE.CylinderGeometry(width * 0.12, width * 0.16, height * 0.38, 12), body, width * 0.2, height * 0.25, 0);
+      box(width * 0.36, height * 0.1, depth * 0.06, display, 0, height * 0.06, -depth * 0.39);
+      break;
+    case "nutrition-unit":
+      box(width * 0.86, height * 0.52, depth * 0.72, body, 0, -height * 0.08, 0);
+      box(width * 0.72, height * 0.06, depth * 0.62, dark, 0, height * 0.22, 0);
+      for (const x of [-0.2, 0.2]) add(new THREE.CylinderGeometry(width * 0.1, width * 0.1, height * 0.08, 12), display, x * width, height * 0.3, 0);
+      box(width * 0.3, height * 0.1, depth * 0.06, display, 0, 0, -depth * 0.39);
+      break;
+    default:
+      box(width, height, depth);
+  }
+  return group;
+}
+
 export default function ShipPreview3D({
   placedParts,
   interiorParts,
@@ -639,11 +706,12 @@ export default function ShipPreview3D({
           const furnishingWidth = interiorPart.slotId.startsWith("wall") ? moduleWidth * 0.22 : moduleWidth * 0.3;
           const furnishingHeight = interiorPart.slotId === "ceiling" ? moduleHeight * 0.12 : moduleHeight * 0.34;
           const furnishingDepth = interiorPart.slotId.startsWith("wall") ? moduleDepth * 0.08 : moduleDepth * 0.28;
-          const fallback = new THREE.Mesh(
-            new THREE.BoxGeometry(furnishingWidth, furnishingHeight, furnishingDepth),
-            new THREE.MeshStandardMaterial({ color: interiorDef.color, roughness: 0.45, metalness: 0.35 })
+          const fallback = createInteriorFallbackVisual(
+            interiorDef,
+            furnishingWidth,
+            furnishingHeight,
+            furnishingDepth
           );
-          fallback.castShadow = true;
           furnishingGroup.add(fallback);
           partGroup.add(furnishingGroup);
 
