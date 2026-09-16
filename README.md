@@ -17,5 +17,6 @@ Die 3D-Vorschau nutzt für ausgewählte Corvette-Bauteile Community-Modelle aus 
   - [Attachments](https://cults3d.com/en/3d-model/game/no-man-s-sky-nms-corvette-construction-pack-attachments-pack)
   - [Combat](https://cults3d.com/en/3d-model/game/no-man-s-sky-nms-corvette-construction-pack-combat-pack)
   - [Generator](https://cults3d.com/en/3d-model/game/no-man-s-sky-nms-corvette-construction-pack-generator-pack)
+  - [Thrusters](https://cults3d.com/en/3d-model/game/no-man-s-sky-nms-corvette-construction-pack-thrusters-pack)
 
 Die konvertierten und Draco-komprimierten GLB-Dateien befinden sich unter `public/models/community-corvette/`. Der vollständige Lizenz- und Attributionshinweis ist in `public/models/community-corvette/ATTRIBUTION.txt` enthalten. Änderungen oder Weiterverteilungen dieser Modelle müssen die Attribution beibehalten und unter derselben Lizenz erfolgen.

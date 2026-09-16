@@ -108,6 +108,12 @@ Object.assign(COMMUNITY_MODELS, {
   "medusa-class-reactor": communityAsset("generator-medusa-class-reactor.glb"),
   "azimuth-class-reactor": communityAsset("generator-azimuth-class-reactor.glb"),
   "ceto-class-reactor": communityAsset("generator-ceto-class-reactor.glb"),
+  "titan-heavy-booster": communityAsset("thruster-titan-heavy-booster-left.glb"),
+  // Das Community-Paket enthält kein Titan-Sublight-Modell; Arcadia ist die nächstpassende Sublight-Variante.
+  "titan-sublight-thruster": communityAsset("thruster-arcadia-sublight-thruster-left.glb"),
+  // Das Community-Paket enthält kein Ambassador-Modell; Arcadia ist die nächstpassende Heavy-Variante.
+  "ambassador-heavy-booster": communityAsset("thruster-arcadia-heavy-thruster-left.glb"),
+  "thunderbird-heavy-booster": communityAsset("thruster-thunderbird-heavy-booster-left.glb"),
 });
 
 const communityModelCache = new Map<string, Promise<THREE.Group>>();
