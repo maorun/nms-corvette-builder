@@ -51,6 +51,122 @@ export const PART_CATEGORIES: PartCategory[] = [
   "Custom",
 ];
 
+export const PART_CATEGORY_LABELS: Record<PartCategory, string> = {
+  Cockpit: "Cockpit",
+  Hab: "Wohnmodul",
+  Walkway: "Laufsteg",
+  Aerofoil: "Tragflächenmodul",
+  Wing: "Flügel",
+  Cowling: "Verkleidung",
+  Diffuser: "Diffusor",
+  Dome: "Kuppel",
+  Nacelle: "Gondel",
+  Casing: "Gehäuse",
+  Trim: "Zierleiste",
+  Sidepod: "Seitengondel",
+  Fin: "Leitwerk",
+  Thruster: "Triebwerk",
+  "Landing Bay": "Landebucht",
+  "Landing Gear": "Fahrwerk",
+  "Weapon Mount": "Waffenhalterung",
+  Shielding: "Schildsystem",
+  "Hull Connector": "Rumpfverbinder",
+  "Hull Attachment": "Rumpfanbau",
+  Window: "Fenster",
+  Interior: "Innenraum",
+  Reactor: "Reaktor",
+  Custom: "Benutzerdefiniert",
+};
+
+const PART_NAME_TRANSLATIONS: [RegExp, string][] = [
+  [/Titan-Class/g, "Titan-Klasse"],
+  [/Ambassador-Class/g, "Ambassador-Klasse"],
+  [/Thunderbird-Class/g, "Thunderbird-Klasse"],
+  [/Zenith-Class/g, "Zenith-Klasse"],
+  [/Medusa-Class/g, "Medusa-Klasse"],
+  [/Azimuth-Class/g, "Azimuth-Klasse"],
+  [/Ceto-Class/g, "Ceto-Klasse"],
+  [/Heavy Booster/g, "Schubverstärker"],
+  [/Sublight Thruster/g, "Unterlichttriebwerk"],
+  [/Landing Thrusters/g, "Landetriebwerke"],
+  [/Landing Bay/g, "Landebucht"],
+  [/Landing Gear/g, "Fahrwerk"],
+  [/Weapon Mount/g, "Waffenhalterung"],
+  [/Hull Connector/g, "Rumpfverbinder"],
+  [/Hull Attachment/g, "Rumpfanbau"],
+  [/Wing Module/g, "Flügelmodul"],
+  [/Propeller Module/g, "Propellermodul"],
+  [/Fin Module/g, "Leitwerksmodul"],
+  [/Dome Section/g, "Kuppelsegment"],
+  [/Dome Rim/g, "Kuppelrahmen"],
+  [/Nacelle Rim/g, "Gondelrahmen"],
+  [/Casing Cap/g, "Gehäuseabschluss"],
+  [/Trim Cap/g, "Zierleistenabschluss"],
+  [/Engine Cover/g, "Triebwerksabdeckung"],
+  [/Sidepod Cap/g, "Seitengondelabschluss"],
+  [/Diffuser Rim/g, "Diffusorrahmen"],
+  [/Defence Field/g, "Verteidigungsfeld"],
+  [/Deflector Shield/g, "Deflektorschild"],
+  [/High-Energy Shield/g, "Hochenergieschild"],
+  [/Ion Barrier/g, "Ionenbarriere"],
+  [/Cyclotron Defence Cannon/g, "Zyklotron-Verteidigungskanone"],
+  [/Phase Beam Array/g, "Phasenstrahler-Anordnung"],
+  [/Photon Cannon Array/g, "Photonenkanonen-Anordnung"],
+  [/Torpedo Launcher/g, "Torpedowerfer"],
+  [/Hydraulic Legs/g, "Hydraulikbeine"],
+  [/Mag-Field/g, "Magnetfeld"],
+  [/Air Purifier/g, "Luftreiniger"],
+  [/Satellite Receiver/g, "Satellitenempfänger"],
+  [/Mission Radar/g, "Missionsradar"],
+  [/Radar Dome/g, "Radarkuppel"],
+  [/Bunk Beds/g, "Etagenbetten"],
+  [/Crew Berth/g, "Mannschaftskoje"],
+  [/Living Wall/g, "Pflanzenwand"],
+  [/Medi-Pod/g, "Medizinkapsel"],
+  [/Refiner Unit/g, "Raffinerieeinheit"],
+  [/Nutrition Unit/g, "Ernährungseinheit"],
+  [/Cargo Box/g, "Frachtbox"],
+  [/Cargo Capsule/g, "Frachtkapsel"],
+  [/Cargo Pod/g, "Frachtmodul"],
+  [/Cargo Rack/g, "Frachtgestell"],
+  [/Cargo Sphere/g, "Frachtkugel"],
+  [/Waste Disposal/g, "Abfallentsorgung"],
+  [/Hull Vents/g, "Rumpflüftungen"],
+  [/Panelled Window/g, "Fenster mit Paneelen"],
+  [/Rounded Window/g, "Abgerundetes Fenster"],
+  [/Seamless Window/g, "Rahmenloses Fenster"],
+  [/Ballast Tank/g, "Ballasttank"],
+  [/Bolted Joint/g, "Verschraubte Verbindung"],
+  [/Coolant Distributor/g, "Kühlmittelverteiler"],
+  [/Ducting Joint/g, "Leitungsverbindung"],
+  [/Fuel Cell/g, "Brennstoffzelle"],
+  [/Girder Array/g, "Trägeranordnung"],
+  [/Walkway/g, "Laufsteg"],
+  [/Hab/g, "Wohnmodul"],
+  [/Aerofoil/g, "Tragflächenmodul"],
+  [/Cowling/g, "Verkleidung"],
+  [/Fairing/g, "Verkleidungssegment"],
+  [/Diffuser/g, "Diffusor"],
+  [/Nacelle/g, "Gondel"],
+  [/Casing/g, "Gehäuse"],
+  [/Streamlined Trim/g, "Stromlinien-Zierleiste"],
+  [/Sidepod/g, "Seitengondel"],
+  [/Reactor/g, "Reaktor"],
+  [/Shield/g, "Schild"],
+];
+
+export function getPartDisplayName(name: string): string {
+  return PART_NAME_TRANSLATIONS.reduce(
+    (translatedName, [pattern, replacement]) => translatedName.replace(pattern, replacement),
+    name
+  );
+}
+
+export function getPartDisplayDescription(part: PartDefinition): string {
+  if (part.id.startsWith("custom-")) return part.description;
+  return `${PART_CATEGORY_LABELS[part.category]} „${getPartDisplayName(part.name)}“ für den Korvettenbau.`;
+}
+
 export type InteriorSurface = "Boden" | "Wand" | "Decke";
 
 export interface PartDefinition {
@@ -71,9 +187,10 @@ export interface PartDefinition {
   allowedInteriorSurfaces?: InteriorSurface[];
 }
 
-export const GRID_COLS = 10;
-export const GRID_ROWS = 6;
-export const GRID_LAYERS = 6;
+// Großzügiges Bauvolumen für vollständige Korvetten, ausgedrückt in Rasterzellen.
+export const GRID_COLS = 30;
+export const GRID_ROWS = 20;
+export const GRID_LAYERS = 16;
 
 export const PARTS: PartDefinition[] = [
   // Cockpit
@@ -1033,14 +1150,56 @@ export const PARTS: PartDefinition[] = [
 
 export type Rotation = 0 | 90 | 180 | 270;
 
+export interface PartRotation {
+  x: Rotation;
+  y: Rotation;
+  z: Rotation;
+}
+
+export const DEFAULT_PART_ROTATION: PartRotation = { x: 0, y: 0, z: 0 };
+
+export interface PartDimensions {
+  x: number;
+  y: number;
+  z: number;
+}
+
+/**
+ * Returns the axis-aligned grid volume after applying the same XYZ Euler
+ * rotation used by the 3D preview. An unrotated part is w × 1 × h cells.
+ */
+export function getRotatedPartDimensions(
+  w: number,
+  h: number,
+  rotation: PartRotation
+): PartDimensions {
+  let dimensions: PartDimensions = { x: w, y: 1, z: h };
+  // Three.js applies an XYZ Euler rotation as Z → Y → X to the local axes.
+  // Apply the corresponding dimension permutations in that same order.
+  if (rotation.z === 90 || rotation.z === 270) {
+    dimensions = { x: dimensions.y, y: dimensions.x, z: dimensions.z };
+  }
+  if (rotation.y === 90 || rotation.y === 270) {
+    dimensions = { x: dimensions.z, y: dimensions.y, z: dimensions.x };
+  }
+  if (rotation.x === 90 || rotation.x === 270) {
+    dimensions = { x: dimensions.x, y: dimensions.z, z: dimensions.y };
+  }
+  return dimensions;
+}
+
+export function isDefaultPartRotation(rotation: PartRotation): boolean {
+  return rotation.x === 0 && rotation.y === 0 && rotation.z === 0;
+}
+
 export interface PlacedPart {
   instanceId: string;
   partId: string;
   col: number;
   row: number;
-  /** Vertical layer (0 = bottom, GRID_LAYERS-1 = top) */
+  /** Lowest occupied layer (0 = bottom, GRID_LAYERS-1 = top). */
   layer: number;
-  rotation: Rotation;
+  rotation: PartRotation;
 }
 
 export type InteriorSlotId = "floor-left" | "floor-right" | "wall-left" | "wall-right" | "ceiling";

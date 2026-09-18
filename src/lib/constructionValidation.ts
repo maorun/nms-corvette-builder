@@ -2,10 +2,11 @@ import {
   GRID_COLS,
   GRID_LAYERS,
   GRID_ROWS,
+  getPartDisplayName,
+  getRotatedPartDimensions,
   PartDefinition,
   PlacedInteriorPart,
   PlacedPart,
-  Rotation,
 } from "@/lib/corvetteData";
 
 export type ValidationSeverity = "error" | "warning";
@@ -17,20 +18,18 @@ export interface ConstructionValidationIssue {
   message: string;
 }
 
-function rotatedDimensions(w: number, h: number, rotation: Rotation): { w: number; h: number } {
-  return rotation === 90 || rotation === 270 ? { w: h, h: w } : { w, h };
-}
-
 function cellKey(col: number, row: number, layer: number): string {
   return `${col}:${row}:${layer}`;
 }
 
 function occupiedCells(part: PlacedPart, definition: PartDefinition): string[] {
-  const { w, h } = rotatedDimensions(definition.w, definition.h, part.rotation);
+  const dimensions = getRotatedPartDimensions(definition.w, definition.h, part.rotation);
   const cells: string[] = [];
-  for (let row = part.row; row < part.row + h; row++) {
-    for (let col = part.col; col < part.col + w; col++) {
-      cells.push(cellKey(col, row, part.layer));
+  for (let layer = part.layer; layer < part.layer + dimensions.y; layer++) {
+    for (let row = part.row; row < part.row + dimensions.z; row++) {
+      for (let col = part.col; col < part.col + dimensions.x; col++) {
+        cells.push(cellKey(col, row, layer));
+      }
     }
   }
   return cells;
@@ -156,7 +155,7 @@ export function validateConstruction(
   if (disconnected.length > 0) {
     const labels = disconnected
       .slice(0, 3)
-      .map((part) => definitionsById.get(part.partId)?.name ?? part.partId)
+      .map((part) => getPartDisplayName(definitionsById.get(part.partId)?.name ?? part.partId))
       .join(", ");
     issues.push({
       id: "disconnected-parts",

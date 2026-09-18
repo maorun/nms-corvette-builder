@@ -34,11 +34,11 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## Daten- und Platzierungsmodell
 
-- Außenraster: `GRID_COLS = 10`, `GRID_ROWS = 6`, `GRID_LAYERS = 6` in `corvetteData.ts`.
-- Wenn sich `GRID_LAYERS` ändert, `LAYER_LABELS` in `CorvetteBuilder.tsx` anpassen.
+- Außenraster: `GRID_COLS = 30`, `GRID_ROWS = 20`, `GRID_LAYERS = 16` in `corvetteData.ts`. Diese zentralen Konstanten bestimmen Raster, Kollisionen, Validierung und 3D-Bauvolumen.
+- Ebenenbeschriftungen erzeugt `getLayerLabel()` in `CorvetteBuilder.tsx` dynamisch aus `GRID_LAYERS`.
 - `PartDefinition` beschreibt Katalogteile über stabile `id`, `category`, `maxCount`, ungedrehte Rastermaße `w`/`h`, Farbe und Beschreibung.
-- `PlacedPart` beschreibt ein Außenbauteil über `instanceId`, `partId`, `col`, `row`, `layer` und `rotation` (`0 | 90 | 180 | 270`).
-- Bei 90°/270° müssen Rastermaße und 3D-Darstellung korrekt rotieren. Rasterkoordinaten verwenden den gedrehten Footprint; die 3D-Baugruppe selbst muss ebenfalls rotiert werden.
+- `PlacedPart` beschreibt ein Außenbauteil über `instanceId`, `partId`, `col`, `row`, `layer` und eine dreiachsige `rotation` mit `x`, `y` und `z` (jeweils `0 | 90 | 180 | 270`). `layer` ist dabei die unterste belegte Ebene.
+- Außenbauteile belegen ein echtes 3D-Volumen: ungedreht `w × 1 × h`. Bei jeder X-/Y-/Z-Drehung müssen Rastermaße, Ebenenbelegung, Kollisionsprüfung, Validierung und 3D-Darstellung über `getRotatedPartDimensions()` dieselbe gedrehte Ausdehnung verwenden. Die 3D-Baugruppe wird mit XYZ-Euler-Winkeln rotiert.
 - Außenbauteile kollidieren nur innerhalb derselben Ebene. Dieselbe Zelle darf auf verschiedenen Ebenen belegt sein.
 - Maximalanzahlen gelten global über alle Außenebenen und Innenrauminstanzen.
 

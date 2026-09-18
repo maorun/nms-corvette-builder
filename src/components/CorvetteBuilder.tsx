@@ -6,6 +6,9 @@ import { validateConstruction } from "@/lib/constructionValidation";
 import {
   PARTS as BASE_PARTS,
   PART_CATEGORIES,
+  PART_CATEGORY_LABELS,
+  getPartDisplayDescription,
+  getPartDisplayName,
   GRID_COLS,
   GRID_ROWS,
   GRID_LAYERS,
@@ -13,6 +16,10 @@ import {
   PartDefinition,
   PartCategory,
   Rotation,
+  PartRotation,
+  DEFAULT_PART_ROTATION,
+  getRotatedPartDimensions,
+  isDefaultPartRotation,
   HAB_INTERIOR_SLOTS,
   INTERIOR_ALLOWED_SURFACES,
   InteriorSlotId,
@@ -35,24 +42,23 @@ function newInstanceId() {
   return `inst-${++instanceCounter}`;
 }
 
-function rotatedDimensions(
-  w: number,
-  h: number,
-  rotation: Rotation
-): { w: number; h: number } {
-  if (rotation === 90 || rotation === 270) return { w: h, h: w };
-  return { w, h };
-}
-
 function cellsOccupied(p: PlacedPart, def: PartDefinition): string[] {
-  const { w, h } = rotatedDimensions(def.w, def.h, p.rotation);
+  const { x, y, z } = getRotatedPartDimensions(def.w, def.h, p.rotation);
   const cells: string[] = [];
-  for (let r = p.row; r < p.row + h; r++) {
-    for (let c = p.col; c < p.col + w; c++) {
-      cells.push(`${c},${r}`);
+  for (let layer = p.layer; layer < p.layer + y; layer++) {
+    for (let row = p.row; row < p.row + z; row++) {
+      for (let col = p.col; col < p.col + x; col++) {
+        cells.push(`${col},${row},${layer}`);
+      }
     }
   }
   return cells;
+}
+
+function cellsOccupiedOnLayer(p: PlacedPart, def: PartDefinition, layer: number): string[] {
+  return cellsOccupied(p, def)
+    .filter((cell) => cell.endsWith(`,${layer}`))
+    .map((cell) => cell.slice(0, cell.lastIndexOf(",")));
 }
 
 function canPlace(
@@ -62,37 +68,43 @@ function canPlace(
   col: number,
   row: number,
   layer: number,
-  rotation: Rotation,
+  rotation: PartRotation,
   excludeInstanceId?: string
 ): boolean {
-  const { w, h } = rotatedDimensions(partDef.w, partDef.h, rotation);
-  if (col + w > GRID_COLS || row + h > GRID_ROWS) return false;
+  const dimensions = getRotatedPartDimensions(partDef.w, partDef.h, rotation);
+  if (
+    col + dimensions.x > GRID_COLS ||
+    row + dimensions.z > GRID_ROWS ||
+    layer + dimensions.y > GRID_LAYERS
+  ) return false;
 
   const occupied = new Set<string>();
-  for (const p of parts) {
-    if (p.instanceId === excludeInstanceId) continue;
-    if (p.layer !== layer) continue;
-    const def = allParts.find((d) => d.id === p.partId);
-    if (!def) continue;
-    for (const cell of cellsOccupied(p, def)) occupied.add(cell);
+  for (const placedPart of parts) {
+    if (placedPart.instanceId === excludeInstanceId) continue;
+    const definition = allParts.find((candidate) => candidate.id === placedPart.partId);
+    if (!definition) continue;
+    for (const cell of cellsOccupied(placedPart, definition)) occupied.add(cell);
   }
-  for (let r = row; r < row + h; r++) {
-    for (let c = col; c < col + w; c++) {
-      if (occupied.has(`${c},${r}`)) return false;
+  for (let occupiedLayer = layer; occupiedLayer < layer + dimensions.y; occupiedLayer++) {
+    for (let occupiedRow = row; occupiedRow < row + dimensions.z; occupiedRow++) {
+      for (let occupiedCol = col; occupiedCol < col + dimensions.x; occupiedCol++) {
+        if (occupied.has(`${occupiedCol},${occupiedRow},${occupiedLayer}`)) return false;
+      }
     }
   }
   return true;
 }
+function rotateAroundAxis(rotation: PartRotation, axis: keyof PartRotation): PartRotation {
+  return { ...rotation, [axis]: ((rotation[axis] + 90) % 360) as Rotation };
+}
+
 const EMPTY_PART_SET = new Set<string>();
 
-const LAYER_LABELS = [
-  "Ebene 1 (Unterste)",
-  "Ebene 2",
-  "Ebene 3",
-  "Ebene 4",
-  "Ebene 5",
-  "Ebene 6 (Oberst)",
-];
+function getLayerLabel(layer: number): string {
+  if (layer === 0) return "Ebene 1 (unterste)";
+  if (layer === GRID_LAYERS - 1) return `Ebene ${GRID_LAYERS} (oberste)`;
+  return `Ebene ${layer + 1}`;
+}
 
 export default function CorvetteBuilder() {
   const [customParts, setCustomParts] = useState<PartDefinition[]>(() => {
@@ -125,7 +137,7 @@ export default function CorvetteBuilder() {
   const [selectedInteriorPartId, setSelectedInteriorPartId] = useState<string | null>(null);
   const [currentLayer, setCurrentLayer] = useState(0);
   const [selectedPartId, setSelectedPartId] = useState<string | null>(null);
-  const [selectedRotation, setSelectedRotation] = useState<Rotation>(0);
+  const [selectedRotation, setSelectedRotation] = useState<PartRotation>({ ...DEFAULT_PART_ROTATION });
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(
     null
   );
@@ -274,12 +286,11 @@ export default function CorvetteBuilder() {
         return;
       }
 
-      // Check if clicking on an existing part on the current layer
+      // Check whether the current layer intersects an existing 3D part.
       for (const p of placedParts) {
-        if (p.layer !== currentLayer) continue;
         const def = allParts.find((d) => d.id === p.partId);
         if (def) {
-          const cells = cellsOccupied(p, def);
+          const cells = cellsOccupiedOnLayer(p, def, currentLayer);
           if (cells.includes(`${col},${row}`)) {
             setSelectedInstanceId(p.instanceId);
             setSelectedPartId(null);
@@ -329,28 +340,25 @@ export default function CorvetteBuilder() {
   );
 
   const rotatePart = useCallback(
-    (instanceId: string) => {
+    (instanceId: string, axis: keyof PartRotation) => {
       setPlacedParts((prev) =>
-        prev.map((p) => {
-          if (p.instanceId !== instanceId) return p;
-          const def = allParts.find((d) => d.id === p.partId);
-          if (!def) return p;
-          const nextRotation = ((p.rotation + 90) % 360) as Rotation;
-          if (
-            canPlace(
-              prev,
-              allParts,
-              def,
-              p.col,
-              p.row,
-              p.layer,
-              nextRotation,
-              instanceId
-            )
-          ) {
-            return { ...p, rotation: nextRotation };
-          }
-          return p;
+        prev.map((part) => {
+          if (part.instanceId !== instanceId) return part;
+          const definition = allParts.find((candidate) => candidate.id === part.partId);
+          if (!definition) return part;
+          const nextRotation = rotateAroundAxis(part.rotation, axis);
+          return canPlace(
+            prev,
+            allParts,
+            definition,
+            part.col,
+            part.row,
+            part.layer,
+            nextRotation,
+            instanceId
+          )
+            ? { ...part, rotation: nextRotation }
+            : part;
         })
       );
     },
@@ -373,25 +381,19 @@ export default function CorvetteBuilder() {
     setSelectedInstanceId(null);
   }, []);
 
-  // Build cell map for current layer only
+  // Build a 2D cross-section of the complete 3D volume for the active layer.
   const cellMap: Record<string, PlacedPart> = {};
-  for (const p of placedParts) {
-    if (p.layer !== currentLayer) continue;
-    const def = allParts.find((d) => d.id === p.partId);
-    if (!def) continue;
-    for (const cell of cellsOccupied(p, def)) {
-      cellMap[cell] = p;
-    }
-  }
-
-  // Cells that are occupied on OTHER layers (for visual hint)
   const otherLayersCells = new Set<string>();
-  for (const p of placedParts) {
-    if (p.layer === currentLayer) continue;
-    const def = allParts.find((d) => d.id === p.partId);
-    if (!def) continue;
-    for (const cell of cellsOccupied(p, def)) {
-      otherLayersCells.add(cell);
+  for (const placedPart of placedParts) {
+    const definition = allParts.find((candidate) => candidate.id === placedPart.partId);
+    if (!definition) continue;
+    for (const cell of cellsOccupiedOnLayer(placedPart, definition, currentLayer)) {
+      cellMap[cell] = placedPart;
+    }
+    for (const cell of cellsOccupied(placedPart, definition)) {
+      const separator = cell.lastIndexOf(",");
+      const cellLayer = Number(cell.slice(separator + 1));
+      if (cellLayer !== currentLayer) otherLayersCells.add(cell.slice(0, separator));
     }
   }
 
@@ -433,7 +435,12 @@ export default function CorvetteBuilder() {
     : null;
 
   const partsOnLayer = (layer: number) =>
-    placedParts.filter((p) => p.layer === layer).length;
+    placedParts.filter((part) => {
+      const definition = allParts.find((candidate) => candidate.id === part.partId);
+      if (!definition) return false;
+      const dimensions = getRotatedPartDimensions(definition.w, definition.h, part.rotation);
+      return part.layer <= layer && layer < part.layer + dimensions.y;
+    }).length;
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 flex flex-col">
@@ -501,20 +508,18 @@ export default function CorvetteBuilder() {
           {/* Rotation selector */}
           <div className="bg-gray-900 border border-gray-700 rounded-lg p-3">
             <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">
-              Platzierungs-Rotation
+              Platzierungsrotation
             </p>
-            <div className="grid grid-cols-4 gap-1">
-              {([0, 90, 180, 270] as Rotation[]).map((r) => (
+            <div className="space-y-1.5">
+              {(["x", "y", "z"] as const).map((axis) => (
                 <button
-                  key={r}
-                  onClick={() => setSelectedRotation(r)}
-                  className={`text-xs py-1.5 rounded border transition-colors ${
-                    selectedRotation === r
-                      ? "bg-yellow-500 text-gray-900 border-yellow-400 font-bold"
-                      : "bg-gray-800 text-gray-300 border-gray-600 hover:border-yellow-500/50"
-                  }`}
+                  key={axis}
+                  onClick={() => setSelectedRotation((rotation) => rotateAroundAxis(rotation, axis))}
+                  className="w-full flex items-center justify-between text-xs px-2 py-1.5 rounded border bg-gray-800 text-gray-200 border-gray-600 hover:border-yellow-500/50 transition-colors"
+                  title={`Um die ${axis.toUpperCase()}-Achse drehen`}
                 >
-                  {r}°
+                  <span className="font-semibold">{axis.toUpperCase()}-Achse</span>
+                  <span className="text-yellow-300">↻ {selectedRotation[axis]}°</span>
                 </button>
               ))}
             </div>
@@ -565,7 +570,7 @@ export default function CorvetteBuilder() {
               categories.map((cat) => (
                 <div key={cat} className="mb-4">
                   <p className="text-xs font-semibold text-gray-500 uppercase mb-1">
-                    {cat}
+                    {PART_CATEGORY_LABELS[cat]}
                   </p>
                   {filteredParts
                     .filter((p) => p.category === cat)
@@ -592,7 +597,7 @@ export default function CorvetteBuilder() {
                                 setSelectedInstanceId(null);
                               }
                             }}
-                            onMouseEnter={() => setTooltip(part.description)}
+                            onMouseEnter={() => setTooltip(getPartDisplayDescription(part))}
                             onMouseLeave={() => setTooltip(null)}
                             className={`w-full text-left px-2 py-1.5 rounded text-xs border transition-all flex items-center justify-between ${
                               maxReached
@@ -608,10 +613,10 @@ export default function CorvetteBuilder() {
                                 className="inline-block w-2 h-2 rounded-sm flex-shrink-0"
                                 style={{ backgroundColor: part.color }}
                               />
-                              <span className="truncate">{part.name}</span>
+                              <span className="truncate">{getPartDisplayName(part.name)}</span>
                               {isCustom && (
                                 <span className="text-[10px] bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 px-1 rounded flex-shrink-0">
-                                  User
+                                  Benutzer
                                 </span>
                               )}
                             </span>
@@ -650,8 +655,8 @@ export default function CorvetteBuilder() {
             <div className="bg-gray-900 border border-violet-500/50 rounded-lg p-4">
               <div className="flex items-center justify-between gap-3 mb-3">
                 <div>
-                  <p className="text-sm font-bold text-violet-300">Innenraum: {allParts.find((part) => part.id === activeInteriorHab.partId)?.name}</p>
-                  <p className="text-xs text-gray-400">Wähle ein Interior-Teil links und dann einen freien Slot. Innenraumteile belegen kein Außenraster.</p>
+                  <p className="text-sm font-bold text-violet-300">Innenraum: {getPartDisplayName(allParts.find((part) => part.id === activeInteriorHab.partId)?.name ?? "Wohnmodul")}</p>
+                  <p className="text-xs text-gray-400">Wähle links ein Innenraumteil und anschließend einen freien Platz. Innenraumteile belegen kein Außenraster.</p>
                 </div>
                 <button onClick={() => { setActiveInteriorHabId(null); setSelectedInteriorPartId(null); }} className="text-xs bg-gray-700 hover:bg-gray-600 text-gray-200 px-3 py-1.5 rounded">Zurück zum Außenbau</button>
               </div>
@@ -663,7 +668,7 @@ export default function CorvetteBuilder() {
                   const isCompatible = !allowedSurfaces || allowedSurfaces.includes(slot.surface);
                   return <button key={slot.id} disabled={!placed && !isCompatible} onClick={() => placed ? removeInteriorPart(placed.instanceId) : placeInteriorPart(slot.id)} className={`min-h-24 p-3 rounded border text-left transition-colors ${placed ? "border-violet-400 bg-violet-500/15" : !isCompatible ? "border-gray-800 bg-gray-900/40 opacity-45 cursor-not-allowed" : selectedInteriorPartId ? "border-violet-500/60 bg-violet-500/10 hover:bg-violet-500/20" : "border-gray-700 bg-gray-800/60"}`}>
                     <span className="block text-[10px] uppercase text-gray-500">{slot.surface}</span>
-                    <span className="block text-xs font-semibold mt-1" style={definition ? { color: definition.color } : undefined}>{definition ? definition.name : slot.name}</span>
+                    <span className="block text-xs font-semibold mt-1" style={definition ? { color: definition.color } : undefined}>{definition ? getPartDisplayName(definition.name) : slot.name}</span>
                     <span className="block text-[10px] text-gray-500 mt-1">{placed ? "Klick zum Entfernen" : !isCompatible ? "Nicht kompatibel" : selectedInteriorPartId ? "Klick zum Platzieren" : "Freier Slot"}</span>
                   </button>;
                 })}
@@ -700,16 +705,16 @@ export default function CorvetteBuilder() {
                       style={{ backgroundColor: def.color }}
                     />
                     <span className="font-semibold text-yellow-300 text-sm">
-                      {def.name}
+                      {getPartDisplayName(def.name)}
                     </span>
                     <span className="text-xs text-gray-400">
-                      Rotation: {selectedInstance.rotation}°
+                      Rotation: X {selectedInstance.rotation.x}° · Y {selectedInstance.rotation.y}° · Z {selectedInstance.rotation.z}°
                     </span>
                     <span className="text-xs text-gray-400">
                       Pos: ({selectedInstance.col},{selectedInstance.row})
                     </span>
                     <span className="text-xs text-blue-400">
-                      Ebene: {LAYER_LABELS[selectedInstance.layer]}
+                      Ebene: {getLayerLabel(selectedInstance.layer)}
                     </span>
                     <div className="ml-auto flex gap-2">
                       {def.category === "Hab" && (
@@ -720,12 +725,16 @@ export default function CorvetteBuilder() {
                           Innenraum bearbeiten
                         </button>
                       )}
-                      <button
-                        onClick={() => rotatePart(selectedInstance.instanceId)}
-                        className="text-xs bg-blue-900/50 hover:bg-blue-700/60 text-blue-300 border border-blue-700/50 px-3 py-1 rounded transition-colors"
-                      >
-                        ↻ Drehen (+90°)
-                      </button>
+                      {(["x", "y", "z"] as const).map((axis) => (
+                        <button
+                          key={axis}
+                          onClick={() => rotatePart(selectedInstance.instanceId, axis)}
+                          className="text-xs bg-blue-900/50 hover:bg-blue-700/60 text-blue-300 border border-blue-700/50 px-3 py-1 rounded transition-colors"
+                          title={`Um die ${axis.toUpperCase()}-Achse drehen`}
+                        >
+                          ↻ {axis.toUpperCase()} +90°
+                        </button>
+                      ))}
                       <button
                         onClick={() => removePart(selectedInstance.instanceId)}
                         className="text-xs bg-red-900/50 hover:bg-red-700/60 text-red-300 border border-red-700/50 px-3 py-1 rounded transition-colors"
@@ -749,7 +758,7 @@ export default function CorvetteBuilder() {
           {!selectedInstance && (
             <div className="text-xs text-gray-500 bg-gray-900/50 border border-gray-800 rounded px-3 py-2">
               {selectedPartId
-                ? `Bauteil auswählen und auf das Gitter klicken zum Platzieren. Rotation: ${selectedRotation}°`
+                ? `Bauteil auswählen und auf das Gitter klicken zum Platzieren. Rotation: X ${selectedRotation.x}° · Y ${selectedRotation.y}° · Z ${selectedRotation.z}°`
                 : "Wähle ein Bauteil aus der Liste oder klicke ein platziertes Bauteil an."}
             </div>
           )}
@@ -802,7 +811,7 @@ export default function CorvetteBuilder() {
                 {/* Grid */}
                 <div className="bg-gray-900 border border-gray-700 rounded-lg rounded-tl-none p-4 overflow-auto">
                   <p className="text-xs text-gray-500 mb-3 uppercase tracking-wider">
-                    {LAYER_LABELS[currentLayer]} – Bau-Gitter ({GRID_COLS}×
+                    {getLayerLabel(currentLayer)} – Bau-Gitter ({GRID_COLS}×
                     {GRID_ROWS})
                   </p>
                   <p className="text-[11px] text-gray-600 mb-3 -mt-2">
@@ -834,14 +843,15 @@ export default function CorvetteBuilder() {
                         if (selectedPartId && !selectedInstanceId && !placed) {
                           const pDef = allParts.find((d) => d.id === selectedPartId);
                           if (pDef) {
-                            const { w, h } = rotatedDimensions(
+                            const dimensions = getRotatedPartDimensions(
                               pDef.w,
                               pDef.h,
                               selectedRotation
                             );
                             if (
-                              col + w <= GRID_COLS &&
-                              row + h <= GRID_ROWS &&
+                              col + dimensions.x <= GRID_COLS &&
+                              row + dimensions.z <= GRID_ROWS &&
+                              currentLayer + dimensions.y <= GRID_LAYERS &&
                               canPlace(
                                 placedParts,
                                 allParts,
@@ -896,11 +906,11 @@ export default function CorvetteBuilder() {
                                 style={{ color: def.color }}
                               >
                                 <span className="text-[10px] leading-tight text-center px-1 line-clamp-2">
-                                  {def.name}
+                                  {getPartDisplayName(def.name)}
                                 </span>
-                                {placed!.rotation !== 0 && (
+                                {!isDefaultPartRotation(placed!.rotation) && (
                                   <span className="text-[9px] opacity-70">
-                                    {placed!.rotation}°
+                                    X{placed!.rotation.x}° Y{placed!.rotation.y}° Z{placed!.rotation.z}°
                                   </span>
                                 )}
                               </div>
@@ -972,7 +982,7 @@ export default function CorvetteBuilder() {
                         color: def.color,
                       }}
                     >
-                      {def.name} ×{count}
+                      {getPartDisplayName(def.name)} ×{count}
                     </span>
                   );
                 }
@@ -1027,7 +1037,7 @@ export default function CorvetteBuilder() {
                   >
                     {PART_CATEGORIES.map((cat) => (
                       <option key={cat} value={cat}>
-                        {cat}
+                        {PART_CATEGORY_LABELS[cat]}
                       </option>
                     ))}
                   </select>
@@ -1056,7 +1066,7 @@ export default function CorvetteBuilder() {
                   <input
                     type="number"
                     min={1}
-                    max={10}
+                    max={GRID_COLS}
                     value={newPartW}
                     onChange={(e) => setNewPartW(Number(e.target.value))}
                     className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-gray-100 focus:outline-none focus:border-yellow-500"
@@ -1065,12 +1075,12 @@ export default function CorvetteBuilder() {
 
                 <div>
                   <label className="block text-gray-400 mb-1 font-semibold">
-                    Höhe (Zellen)
+                    Tiefe (Zellen)
                   </label>
                   <input
                     type="number"
                     min={1}
-                    max={6}
+                    max={GRID_ROWS}
                     value={newPartH}
                     onChange={(e) => setNewPartH(Number(e.target.value))}
                     className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-gray-100 focus:outline-none focus:border-yellow-500"
