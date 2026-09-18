@@ -11,9 +11,11 @@ import {
   GRID_COLS,
   GRID_ROWS,
   GRID_LAYERS,
-  Rotation,
+  getRotatedPartDimensions,
   HAB_INTERIOR_SLOTS,
   PlacedInteriorPart,
+  PART_CATEGORY_LABELS,
+  getPartDisplayName,
 } from "@/lib/corvetteData";
 
 interface ShipPreview3DProps {
@@ -165,15 +167,6 @@ function cloneAndFitCommunityModel(
   model.scale.set(width / size.x, height / size.y, depth / size.z);
   model.position.set(-center.x * model.scale.x, -center.y * model.scale.y, -center.z * model.scale.z);
   return model;
-}
-
-function rotatedDimensions(
-  w: number,
-  h: number,
-  rotation: Rotation
-): { w: number; h: number } {
-  if (rotation === 90 || rotation === 270) return { w: h, h: w };
-  return { w, h };
 }
 
 function disposeObject(object: THREE.Object3D) {
@@ -454,12 +447,12 @@ export default function ShipPreview3D({
     // Scene
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0a0d14); // Dark space gray/blue
-    scene.fog = new THREE.FogExp2(0x0a0d14, 0.015);
+    scene.fog = new THREE.FogExp2(0x0a0d14, 0.008);
     sceneRef.current = scene;
 
     // Camera
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-    camera.position.set(12, 14, 16);
+    camera.position.set(GRID_COLS * 0.8, GRID_LAYERS * 1.2, GRID_ROWS * 1.1);
     cameraRef.current = camera;
 
     // Renderer
@@ -475,7 +468,7 @@ export default function ShipPreview3D({
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
-    controls.target.set(0, 2.5, 0);
+    controls.target.set(0, GRID_LAYERS * 0.375, 0);
     controls.maxPolarAngle = Math.PI / 2 + 0.1; // Limit below ground
     controlsRef.current = controls;
 
@@ -611,22 +604,21 @@ export default function ShipPreview3D({
     const layerSpacing = layerHeight + explodeGap;
 
     placedParts.forEach((placed) => {
-      if (onlyCurrentLayer && currentLayer !== undefined && placed.layer !== currentLayer) {
-        return;
-      }
-
       const def = allParts.find((d) => d.id === placed.partId);
       if (!def) return;
+      const dimensions = getRotatedPartDimensions(def.w, def.h, placed.rotation);
+      const intersectsCurrentLayer = currentLayer === undefined || (
+        placed.layer <= currentLayer && currentLayer < placed.layer + dimensions.y
+      );
+      if (onlyCurrentLayer && !intersectsCurrentLayer) return;
 
-      const { w, h } = rotatedDimensions(def.w, def.h, placed.rotation);
-
-      // Coordinates relative to center of (GRID_COLS x GRID_ROWS) grid
-      const x = placed.col + w / 2 - GRID_COLS / 2;
-      const z = placed.row + h / 2 - GRID_ROWS / 2;
-      const y = placed.layer * layerSpacing + layerHeight / 2;
+      // Position the rotated module at the centre of its occupied grid volume.
+      const x = placed.col + dimensions.x / 2 - GRID_COLS / 2;
+      const z = placed.row + dimensions.z / 2 - GRID_ROWS / 2;
+      const y = placed.layer * layerSpacing + (dimensions.y * layerSpacing) / 2;
 
       const isSelected = selectedInstanceId === placed.instanceId;
-      const isCurrentLayer = currentLayer === undefined || placed.layer === currentLayer;
+      const isCurrentLayer = intersectsCurrentLayer;
       const opacity = isCurrentLayer ? 0.95 : 0.35;
       const transparent = !isCurrentLayer;
       const isActiveInteriorHab = placed.instanceId === activeInteriorHabId;
@@ -650,7 +642,12 @@ export default function ShipPreview3D({
       );
       partGroup.add(fallbackVisual);
       partGroup.position.set(x, y, z);
-      partGroup.rotation.y = THREE.MathUtils.degToRad(placed.rotation);
+      partGroup.rotation.set(
+        THREE.MathUtils.degToRad(placed.rotation.x),
+        THREE.MathUtils.degToRad(placed.rotation.y),
+        THREE.MathUtils.degToRad(placed.rotation.z),
+        "XYZ"
+      );
       partGroup.userData.isPartModule = true;
 
       const communityModelUrl = COMMUNITY_MODELS[def.id];
@@ -786,10 +783,10 @@ export default function ShipPreview3D({
             const def = allParts.find((d) => d.id === placed.partId);
             if (def) {
               setHoveredPartInfo({
-                name: def.name,
-                category: def.category,
+                name: getPartDisplayName(def.name),
+                category: PART_CATEGORY_LABELS[def.category],
                 layer: placed.layer + 1,
-                pos: `(${placed.col}, ${placed.row}) - ${placed.rotation}°`,
+                pos: `(${placed.col}, ${placed.row}) · X ${placed.rotation.x}° · Y ${placed.rotation.y}° · Z ${placed.rotation.z}°`,
               });
 
               if (isClick && onSelectInstance) {
@@ -817,19 +814,19 @@ export default function ShipPreview3D({
 
     switch (view) {
       case "iso":
-        camera.position.set(12, 14, 16);
+        camera.position.set(GRID_COLS * 0.8, GRID_LAYERS * 1.2, GRID_ROWS * 1.1);
         break;
       case "top":
-        camera.position.set(0, 22, 0.01);
+        camera.position.set(0, Math.max(GRID_COLS, GRID_ROWS) * 1.1, 0.01);
         break;
       case "front":
-        camera.position.set(0, 3, 18);
+        camera.position.set(0, GRID_LAYERS * 0.6, GRID_ROWS * 1.4);
         break;
       case "side":
-        camera.position.set(20, 3, 0);
+        camera.position.set(GRID_COLS * 1.4, GRID_LAYERS * 0.6, 0);
         break;
     }
-    controls.target.set(0, 2.5, 0);
+    controls.target.set(0, GRID_LAYERS * 0.375, 0);
     controls.update();
   };
 
