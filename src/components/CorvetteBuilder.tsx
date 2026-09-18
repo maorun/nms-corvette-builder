@@ -435,7 +435,12 @@ export default function CorvetteBuilder() {
     : null;
 
   const partsOnLayer = (layer: number) =>
-    placedParts.filter((p) => p.layer === layer).length;
+    placedParts.filter((part) => {
+      const definition = allParts.find((candidate) => candidate.id === part.partId);
+      if (!definition) return false;
+      const dimensions = getRotatedPartDimensions(definition.w, definition.h, part.rotation);
+      return part.layer <= layer && layer < part.layer + dimensions.y;
+    }).length;
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 flex flex-col">

@@ -560,17 +560,28 @@ export default function ShipPreview3D({
     slabMesh.position.set(0, -0.1, 0);
     gridGroup.add(slabMesh);
 
-    // Grid lines on top
-    const gridHelper = new THREE.GridHelper(
-      Math.max(gridWidth, gridDepth),
-      Math.max(gridWidth, gridDepth),
-      0xfacc15, // Yellow primary grid
-      0x374151  // Gray secondary
+    // Grid lines precisely match the rectangular construction footprint.
+    const gridLinePositions: number[] = [];
+    for (let col = 0; col <= gridWidth; col++) {
+      const x = col - gridWidth / 2;
+      gridLinePositions.push(x, 0.01, -gridDepth / 2, x, 0.01, gridDepth / 2);
+    }
+    for (let row = 0; row <= gridDepth; row++) {
+      const z = row - gridDepth / 2;
+      gridLinePositions.push(-gridWidth / 2, 0.01, z, gridWidth / 2, 0.01, z);
+    }
+    const gridLineGeometry = new THREE.BufferGeometry();
+    gridLineGeometry.setAttribute(
+      "position",
+      new THREE.Float32BufferAttribute(gridLinePositions, 3)
     );
-    gridHelper.position.set(0, 0.01, 0);
-    gridGroup.add(gridHelper);
+    const gridLines = new THREE.LineSegments(
+      gridLineGeometry,
+      new THREE.LineBasicMaterial({ color: 0x374151 })
+    );
+    gridGroup.add(gridLines);
 
-    // Bounding wireframe volume for all 6 layers
+    // Bounding wireframe volume for all construction layers
     const layerHeight = 0.8;
     const totalHeight = GRID_LAYERS * (layerHeight + explodeGap);
     const boxGeo = new THREE.BoxGeometry(gridWidth, totalHeight, gridDepth);

@@ -1174,14 +1174,16 @@ export function getRotatedPartDimensions(
   rotation: PartRotation
 ): PartDimensions {
   let dimensions: PartDimensions = { x: w, y: 1, z: h };
-  if (rotation.x === 90 || rotation.x === 270) {
-    dimensions = { x: dimensions.x, y: dimensions.z, z: dimensions.y };
+  // Three.js applies an XYZ Euler rotation as Z → Y → X to the local axes.
+  // Apply the corresponding dimension permutations in that same order.
+  if (rotation.z === 90 || rotation.z === 270) {
+    dimensions = { x: dimensions.y, y: dimensions.x, z: dimensions.z };
   }
   if (rotation.y === 90 || rotation.y === 270) {
     dimensions = { x: dimensions.z, y: dimensions.y, z: dimensions.x };
   }
-  if (rotation.z === 90 || rotation.z === 270) {
-    dimensions = { x: dimensions.y, y: dimensions.x, z: dimensions.z };
+  if (rotation.x === 90 || rotation.x === 270) {
+    dimensions = { x: dimensions.x, y: dimensions.z, z: dimensions.y };
   }
   return dimensions;
 }
